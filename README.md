@@ -1,5 +1,5 @@
-# 2x0x-fzu-CoursenotesTemplate-155TuT
+# 2601-fzu-CprograminLinux-WeiweiLin
 
-Record of fzu 202x0x course notes template(Instructor: 155TuT)
+Record of fzu 202601 C Programing in Linux(Instructor: WeiweiLin)
 
 For communication and learning only, all rights reserved.

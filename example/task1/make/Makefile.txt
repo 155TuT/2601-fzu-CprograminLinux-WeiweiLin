@@ -1,0 +1,3 @@
+f3: type.h t.c mysum.c
+	gcc -o f3 t.c mysum.c #此行为命令行以tab键开头
+	

@@ -11,6 +11,16 @@
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/opt/homebrew/bin/gcc-16",
+            "cStandard": "c11",
+            "intelliSenseMode": "macos-gcc-arm64"
         }
     ],
     "version": 4

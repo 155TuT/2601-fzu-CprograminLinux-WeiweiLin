@@ -1,0 +1,17 @@
+Experiment 1: Process Management
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ make clean
+rm -f process_demo main.o process.o
+[exit status: 0]
+
+$ make
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c main.c -o main.o
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c process.c -o process.o
+gcc  -o process_demo main.o process.o 
+[exit status: 0]
+
+$ make
+make: Nothing to be done for 'all'.
+[exit status: 0]
+

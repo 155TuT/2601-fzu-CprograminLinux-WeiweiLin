@@ -1,0 +1,141 @@
+BUILD
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c main.c -o main.o
+gcc  -o process_demo main.o process.o 
+
+PASS: strict optimized build
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 main.c process.c -o /tmp/codex-task1-optimized
+
+PASS: default command; exit=0
+[parent] started, pid=223
+[parent] fork returned child pid=225
+[parent] pid=223, work step 1/2
+[child] pid=225, ppid=223
+[child] pid=225, work step 1/3
+[parent] pid=223, work step 2/2
+[child] pid=225, work step 2/3
+[child] pid=225, work step 3/3
+[parent] waiting for SIGUSR1 or child exit
+[child] send SIGUSR1 to parent pid=223
+[child] before execvp: pid=225, command=ls
+[parent] received SIGUSR1: child is preparing to exec
+total 84
+-rw-r--r-- 1 ovo155 ovo155   450 Sep 12 03:02 Makefile
+-rw-r--r-- 1 ovo155 ovo155  2093 Sep 12 03:07 README.md
+drwxr-xr-x 2 ovo155 ovo155  4096 Sep 12 03:08 logs
+-rw-r--r-- 1 ovo155 ovo155  3665 Sep 12 03:09 main.c
+-rw-r--r-- 1 ovo155 ovo155 16704 Sep 12 03:10 main.o
+-rw-r--r-- 1 ovo155 ovo155  1118 Sep 12 03:02 process.c
+-rw-r--r-- 1 ovo155 ovo155   329 Sep 12 03:02 process.h
+-rw-r--r-- 1 ovo155 ovo155  6640 Sep 12 03:08 process.o
+-rwxr-xr-x 1 ovo155 ovo155 24152 Sep 12 03:10 process_demo
+-rw-r--r-- 1 ovo155 ovo155   260 Sep 12 03:07 report.md
+drwxr-xr-x 2 ovo155 ovo155  4096 Sep 12 03:08 screenshots
+[parent] reaped child pid=225, exit status=0
+
+PASS: PID preserved across exec; exit=0
+[parent] started, pid=226
+[parent] fork returned child pid=228
+[parent] pid=226, work step 1/2
+[child] pid=228, ppid=226
+[child] pid=228, work step 1/3
+[parent] pid=226, work step 2/2
+[child] pid=228, work step 2/3
+[parent] waiting for SIGUSR1 or child exit
+[child] pid=228, work step 3/3
+[child] send SIGUSR1 to parent pid=226
+[child] before execvp: pid=228, command=/bin/sh
+[parent] received SIGUSR1: child is preparing to exec
+[exec] pid=228, ppid=226
+[parent] reaped child pid=228, exit status=0
+
+PASS: missing command; exit=127
+[parent] started, pid=227
+[parent] fork returned child pid=229
+[parent] pid=227, work step 1/2
+[child] pid=229, ppid=227
+[child] pid=229, work step 1/3
+[child] pid=229, work step 2/3
+[parent] pid=227, work step 2/2
+[child] pid=229, work step 3/3
+[parent] waiting for SIGUSR1 or child exit
+[child] send SIGUSR1 to parent pid=227
+[child] before execvp: pid=229, command=/definitely-missing-task1-command
+execvp: No such file or directory
+[parent] received SIGUSR1: child is preparing to exec
+[parent] reaped child pid=229, exit status=127
+
+PASS: permission denied; exit=126
+[parent] started, pid=230
+[parent] fork returned child pid=231
+[parent] pid=230, work step 1/2
+[child] pid=231, ppid=230
+[child] pid=231, work step 1/3
+[parent] pid=230, work step 2/2
+[child] pid=231, work step 2/3
+[child] pid=231, work step 3/3
+[parent] waiting for SIGUSR1 or child exit
+[child] send SIGUSR1 to parent pid=230
+[child] before execvp: pid=231, command=/tmp/codex-task1-test-vsaj7j82/not-executable
+[parent] received SIGUSR1: child is preparing to exec
+execvp: Permission denied
+[parent] reaped child pid=231, exit status=126
+
+PASS: nonzero command exit; exit=7
+[parent] started, pid=232
+[parent] fork returned child pid=233
+[parent] pid=232, work step 1/2
+[child] pid=233, ppid=232
+[child] pid=233, work step 1/3
+[parent] pid=232, work step 2/2
+[child] pid=233, work step 2/3
+[child] pid=233, work step 3/3
+[parent] waiting for SIGUSR1 or child exit
+[child] send SIGUSR1 to parent pid=232
+[child] before execvp: pid=233, command=/bin/sh
+[parent] received SIGUSR1: child is preparing to exec
+[parent] reaped child pid=233, exit status=7
+
+PASS: command killed by SIGTERM; exit=143
+[parent] started, pid=234
+[parent] fork returned child pid=235
+[parent] pid=234, work step 1/2
+[child] pid=235, ppid=234
+[child] pid=235, work step 1/3
+[parent] pid=234, work step 2/2
+[child] pid=235, work step 2/3
+[child] pid=235, work step 3/3
+[parent] waiting for SIGUSR1 or child exit
+[child] send SIGUSR1 to parent pid=234
+[child] before execvp: pid=235, command=/bin/sh
+[parent] received SIGUSR1: child is preparing to exec
+[parent] reaped child pid=235, terminated by signal=15
+
+PASS: child killed before notification; no hang; exit=137
+[parent] started, pid=236
+[parent] fork returned child pid=237
+[parent] pid=236, work step 2/2
+[parent] waiting for SIGUSR1 or child exit
+[parent] received SIGCHLD before handling SIGUSR1
+[parent] reaped child pid=237, terminated by signal=9
+
+PASS: optimized binary signal handling
+[parent] started, pid=238
+[parent] fork returned child pid=239
+[parent] pid=238, work step 1/2
+[child] pid=239, ppid=238
+[child] pid=239, work step 1/3
+[parent] pid=238, work step 2/2
+[child] pid=239, work step 2/3
+[parent] waiting for SIGUSR1 or child exit
+[child] pid=239, work step 3/3
+[child] send SIGUSR1 to parent pid=238
+[child] before execvp: pid=239, command=/bin/true
+[parent] received SIGUSR1: child is preparing to exec
+[parent] reaped child pid=239, exit status=0
+
+PASS: make incremental dependencies
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c main.c -o main.o
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c process.c -o process.o
+gcc  -o process_demo main.o process.o 
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c process.c -o process.o
+gcc  -o process_demo main.o process.o 

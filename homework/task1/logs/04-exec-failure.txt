@@ -1,0 +1,20 @@
+Experiment 1: Process Management
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./process_demo /definitely-missing-task1-command
+[parent] started, pid=53602
+[parent] fork returned child pid=53603
+[parent] pid=53602, work step 1/2
+[child] pid=53603, ppid=53602
+[child] pid=53603, work step 1/3
+[child] pid=53603, work step 2/3
+[parent] pid=53602, work step 2/2
+[parent] waiting for SIGUSR1 or child exit
+[child] pid=53603, work step 3/3
+[child] send SIGUSR1 to parent pid=53602
+[child] before execvp: pid=53603, command=/definitely-missing-task1-command
+[parent] received SIGUSR1: child is preparing to exec
+execvp: No such file or directory
+[parent] reaped child pid=53603, exit status=127
+[exit status: 127]
+

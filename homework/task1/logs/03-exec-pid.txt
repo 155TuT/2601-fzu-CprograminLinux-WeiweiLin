@@ -1,0 +1,20 @@
+Experiment 1: Process Management
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./process_demo /bin/sh -c 'printf "exec: pid=%s, ppid=%s\n" "$$" "$PPID"'
+[parent] started, pid=53575
+[parent] fork returned child pid=53576
+[parent] pid=53575, work step 1/2
+[child] pid=53576, ppid=53575
+[child] pid=53576, work step 1/3
+[child] pid=53576, work step 2/3
+[parent] pid=53575, work step 2/2
+[parent] waiting for SIGUSR1 or child exit
+[child] pid=53576, work step 3/3
+[child] send SIGUSR1 to parent pid=53575
+[child] before execvp: pid=53576, command=/bin/sh
+[parent] received SIGUSR1: child is preparing to exec
+exec: pid=53576, ppid=53575
+[parent] reaped child pid=53576, exit status=0
+[exit status: 0]
+

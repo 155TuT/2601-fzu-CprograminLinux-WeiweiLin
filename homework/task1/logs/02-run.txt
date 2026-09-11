@@ -1,0 +1,31 @@
+Experiment 1: Process Management
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./process_demo
+[parent] started, pid=53511
+[parent] fork returned child pid=53512
+[parent] pid=53511, work step 1/2
+[child] pid=53512, ppid=53511
+[child] pid=53512, work step 1/3
+[parent] pid=53511, work step 2/2
+[child] pid=53512, work step 2/3
+[child] pid=53512, work step 3/3
+[parent] waiting for SIGUSR1 or child exit
+[child] send SIGUSR1 to parent pid=53511
+[child] before execvp: pid=53512, command=ls
+[parent] received SIGUSR1: child is preparing to exec
+total 100
+-rw-r--r-- 1 ovo155 ovo155   450 Sep 12 03:02 Makefile
+-rw-r--r-- 1 ovo155 ovo155  2093 Sep 12 03:07 README.md
+drwxr-xr-x 2 ovo155 ovo155  4096 Sep 12 03:08 logs
+-rw-r--r-- 1 ovo155 ovo155  3665 Sep 12 03:09 main.c
+-rw-r--r-- 1 ovo155 ovo155 16704 Sep 12 03:14 main.o
+-rw-r--r-- 1 ovo155 ovo155  1118 Sep 12 03:02 process.c
+-rw-r--r-- 1 ovo155 ovo155   329 Sep 12 03:02 process.h
+-rw-r--r-- 1 ovo155 ovo155  6640 Sep 12 03:14 process.o
+-rwxr-xr-x 1 ovo155 ovo155 24152 Sep 12 03:14 process_demo
+-rw-r--r-- 1 ovo155 ovo155 19193 Sep 12 03:13 report.md
+drwxr-xr-x 2 ovo155 ovo155  4096 Sep 12 03:08 screenshots
+[parent] reaped child pid=53512, exit status=0
+[exit status: 0]
+

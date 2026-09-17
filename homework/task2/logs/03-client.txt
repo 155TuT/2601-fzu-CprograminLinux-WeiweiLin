@@ -1,0 +1,16 @@
+Experiment 2: Interprocess Communication
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ printf 'hello linux\nshared memory + semaphore\nquit123\nquit\n' | ./ipc_client
+[client] pid=47908, connected: shmid=1, semid=0
+[client] enter text (max 255 bytes); quit or EOF ends the session.
+[client] send: hello linux
+[client] reply #1: HELLO LINUX
+[client] send: shared memory + semaphore
+[client] reply #2: SHARED MEMORY + SEMAPHORE
+[client] send: quit123
+[client] reply #3: QUIT123
+[client] send: quit
+[client] final reply: bye
+[exit status: 0]
+

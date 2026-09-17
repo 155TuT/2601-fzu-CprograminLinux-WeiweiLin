@@ -1,0 +1,17 @@
+Experiment 2: Interprocess Communication
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./ipc_server
+[server] pid=47903, key=0x3230ca22, shmid=1, semid=0
+[server] ready; waiting for one client session.
+[server] request #1 (11 bytes): hello linux
+[server] response #1: HELLO LINUX
+[server] request #2 (25 bytes): shared memory + semaphore
+[server] response #2: SHARED MEMORY + SEMAPHORE
+[server] request #3 (7 bytes): quit123
+[server] response #3: QUIT123
+[server] shutdown requested; send reply: bye
+[server] client acknowledged the final reply.
+[server] cleanup finished.
+[exit status: 0]
+

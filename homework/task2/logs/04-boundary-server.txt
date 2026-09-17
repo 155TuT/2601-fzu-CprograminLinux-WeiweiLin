@@ -1,0 +1,13 @@
+Experiment 2: Interprocess Communication
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./ipc_server
+[server] pid=47939, key=0x3230ca22, shmid=2, semid=1
+[server] ready; waiting for one client session.
+[server] request #1 (19 bytes): ok after long input
+[server] response #1: OK AFTER LONG INPUT
+[server] shutdown requested; send reply: bye
+[server] client acknowledged the final reply.
+[server] cleanup finished.
+[exit status: 0]
+

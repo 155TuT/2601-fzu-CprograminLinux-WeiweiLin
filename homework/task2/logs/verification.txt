@@ -1,0 +1,58 @@
+$ make clean
+rm -f ipc_server ipc_client server.o client.o ipc.o
+[exit status: 0]
+
+$ make 'CFLAGS=-std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror' verify
+gcc -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -c server.c -o server.o
+gcc -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -c ipc.c -o ipc.o
+gcc  -o ipc_server server.o ipc.o 
+gcc -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -c client.c -o client.o
+gcc  -o ipc_client client.o ipc.o 
+python3 verify.py
+PASS: client started before server returns 1 and creates no IPC objects
+shmget (start the server first): No such file or directory
+
+PASS: 103 ordered round trips; quit prefix, empty text and UTF-8; cleanup
+[client] reply #1: MESSAGE-001
+[client] reply #2: MESSAGE-002
+[client] reply #101: QUIT123
+[client] reply #102: 
+[client] reply #103: LINUX 中文
+[client] final reply: bye
+
+PASS: 255-byte line accepted; 256-byte line fully discarded; next line intact
+
+PASS: EOF without a trailing newline sends last line, then shuts down
+[client] pid=232, connected: shmid=2, semid=2
+[client] enter text (max 255 bytes); quit or EOF ends the session.
+[client] send: last line without newline
+[client] reply #1: LAST LINE WITHOUT NEWLINE
+[client] EOF -> request shutdown.
+[client] send: quit
+[client] final reply: bye
+
+PASS: duplicate server rejected without deleting first server's resources
+shmget (exclusive create): File exists
+
+PASS: second client rejected; original client session remains usable
+Server is starting or its client session is already claimed.
+
+PASS: SIGINT interrupts idle server; exit 130; both IPC objects removed
+[server] pid=239, key=0x3230a6f0, shmid=5, semid=5
+[server] ready; waiting for one client session.
+wait for request: Interrupted system call
+[server] interrupted by signal=2
+[server] cleanup finished.
+
+PASS: server SIGTERM releases waiting client with error; no hang or IPC leak
+[client] pid=241, connected: shmid=6, semid=6
+[client] enter text (max 255 bytes); quit or EOF ends the session.
+[client] send: waiting request
+request/reply: Identifier removed
+
+PASS: partial setup failure removes owned shared memory, preserves existing semaphore
+semget (exclusive create): File exists
+[server] cleanup finished.
+
+All 9 integration checks passed; all test-owned IPC objects removed.
+[exit status: 0]

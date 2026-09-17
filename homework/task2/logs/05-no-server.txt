@@ -1,0 +1,7 @@
+Experiment 2: Interprocess Communication
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./ipc_client
+shmget (start the server first): No such file or directory
+[exit status: 1]
+

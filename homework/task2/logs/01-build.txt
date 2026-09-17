@@ -1,0 +1,19 @@
+Experiment 2: Interprocess Communication
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ make clean
+rm -f ipc_server ipc_client server.o client.o ipc.o
+[exit status: 0]
+
+$ make
+gcc -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c server.c -o server.o
+gcc -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c ipc.c -o ipc.o
+gcc  -o ipc_server server.o ipc.o 
+gcc -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c client.c -o client.o
+gcc  -o ipc_client client.o ipc.o 
+[exit status: 0]
+
+$ make
+make: Nothing to be done for 'all'.
+[exit status: 0]
+

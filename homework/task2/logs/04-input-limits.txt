@@ -1,0 +1,14 @@
+Experiment 2: Interprocess Communication
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ python3 -c "print('x' * 256); print('ok after long input')" | ./ipc_client
+[client] pid=47944, connected: shmid=2, semid=1
+[client] enter text (max 255 bytes); quit or EOF ends the session.
+Input too long: max 255 bytes; line discarded.
+[client] send: ok after long input
+[client] reply #1: OK AFTER LONG INPUT
+[client] EOF -> request shutdown.
+[client] send: quit
+[client] final reply: bye
+[exit status: 0]
+

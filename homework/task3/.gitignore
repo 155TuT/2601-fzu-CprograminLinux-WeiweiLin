@@ -1,0 +1,6 @@
+*.o
+tcp_server
+tcp_client
+__pycache__/
+output/*
+!output/.gitkeep

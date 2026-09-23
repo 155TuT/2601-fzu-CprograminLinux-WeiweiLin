@@ -1,0 +1,15 @@
+Experiment 3: Network Programming and File Operations
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./tcp_client 127.0.0.1 3339 data/messages.txt output/no-server.txt
+connect (start the server first): Connection refused
+[exit status: 1]
+
+$ ./tcp_client 127.0.0.1 3339 data/missing.txt output/missing-replies.txt
+fopen (input): No such file or directory
+[exit status: 1]
+
+$ ./tcp_client
+fopen (new output; choose a non-existing file): File exists
+[exit status: 1]
+

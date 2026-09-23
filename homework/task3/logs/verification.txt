@@ -1,0 +1,56 @@
+Task 3 verification record - 2026-09-24
+Environment: Ubuntu 24.04.2 LTS / WSL2 / x86_64 / GCC 13.3.0 / GNU Make 4.3
+Scope: real C client/server processes on loopback TCP sockets, temporary files.
+The following records summarize commands and retain their observed output from this run.
+
+1. Strict compilation
+$ make CFLAGS='-std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror'
+server.c, client.c and net.c compiled and linked successfully, with no warnings.
+After combining each frame's header and body, net.c was recompiled with the same flags
+and both programs were relinked successfully.
+
+2. Integration checks against the strict build
+$ make verify
+python3 verify.py
+PASS 01: 103 file round trips via localhost; UTF-8, empty line, literal quit, final line without LF; append log
+PASS 02: 1024 bytes accepted; 1025-byte and NUL lines fully skipped; following line intact
+PASS 03: empty file closes both ends normally and creates an empty reply file
+PASS 04: fragmented header/body and coalesced frames preserve message boundaries, including zero length
+PASS 05: truncated header/body, absent body, oversize length and embedded NUL rejected with exit 1
+PASS 06: client rejects missing/truncated/oversize/NUL replies and reset connections; saves no partial reply
+PASS 07: duplicate bind fails without changing original server or its files
+PASS 08: no listening server returns exit 1 rather than waiting for a reply
+PASS 09: missing input and invalid output/log directories reported without success
+PASS 10: existing output, input-as-output and symlink alias refused without truncating files
+PASS 11: buffered file write failure detected by fflush using /dev/full
+PASS 12: invalid ports and bind addresses rejected with usage exit 2
+All 12 integration checks passed; test processes and temporary files cleaned up.
+[exit status: 0]
+
+3. Default build and screenshot evidence
+make clean; make; make were executed in the capture terminal.
+Actual compiler output: logs/01-build.txt.
+Default client/server session: logs/02-server.txt and logs/03-client.txt; both returned 0.
+Saved-file comparison: logs/04-files.txt; diff returned 0.
+Input length demonstration: logs/05-input-limits.txt; returned 0 with 1 skipped line.
+Expected error cases: logs/06-errors.txt; all three commands returned 1.
+
+4. Header dependency dry run
+$ make -n -W net.h
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c server.c -o server.o
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c net.c -o net.o
+gcc  -o tcp_server server.o net.o
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c client.c -o client.o
+gcc  -o tcp_client client.o net.o
+The dry run schedules all three dependent objects and both executable links.
+
+Development issue resolved: the initial separate header/body writes caused the
+103-message check to exceed its 8-second limit. Combining the header and body in
+send_frame retained full-send handling and the complete 12-check suite then passed.
+
+5. Final artifact checks
+PASS: report source blocks exactly match all C files, header, Makefile and input.
+PASS: all relative report links exist; 6 full-size PNG images have white backgrounds.
+PASS: captured PIDs, command exit statuses and archived reply bytes match the report.
+PASS: make -q returns 0; header dependency dry run schedules 3 compiles and 2 links.
+PASS: source/document whitespace checks passed; raw terminal logs retain actual output.

@@ -1,0 +1,15 @@
+Experiment 3: Network Programming and File Operations
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./tcp_client
+[client] pid=169869, connected to 127.0.0.1:3339
+[client] input=data/messages.txt; output=output/replies.txt
+[client] send #1 (11 bytes): hello linux
+[client] recv #1 (11 bytes): HELLO LINUX
+[client] send #2 (20 bytes): tcp socket + file io
+[client] recv #2 (20 bytes): TCP SOCKET + FILE IO
+[client] send #3 (15 bytes): goodbye, task3!
+[client] recv #3 (15 bytes): GOODBYE, TASK3!
+[client] input EOF; saved 3 replies, skipped 0 lines.
+[exit status: 0]
+

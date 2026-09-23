@@ -1,0 +1,19 @@
+Experiment 3: Network Programming and File Operations
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ python3 -c "print('x' * 1025); print('ok after long input')" > output/boundary-input.txt
+[exit status: 0]
+
+$ ./tcp_client 127.0.0.1 3339 output/boundary-input.txt output/boundary-replies.txt
+[client] pid=169939, connected to 127.0.0.1:3339
+[client] input=output/boundary-input.txt; output=output/boundary-replies.txt
+Input line #1 invalid (max 1024 bytes, no NUL); skipped.
+[client] send #1 (19 bytes): ok after long input
+[client] recv #1 (19 bytes): OK AFTER LONG INPUT
+[client] input EOF; saved 1 replies, skipped 1 lines.
+[exit status: 0]
+
+$ cat output/boundary-replies.txt
+OK AFTER LONG INPUT
+[exit status: 0]
+

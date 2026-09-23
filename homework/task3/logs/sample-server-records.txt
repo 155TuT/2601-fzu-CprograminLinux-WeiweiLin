@@ -1,0 +1,7 @@
+session: pid=169865, listen=127.0.0.1:3339
+recv #1 (11 bytes): hello linux
+send #1 (11 bytes): HELLO LINUX
+recv #2 (20 bytes): tcp socket + file io
+send #2 (20 bytes): TCP SOCKET + FILE IO
+recv #3 (15 bytes): goodbye, task3!
+send #3 (15 bytes): GOODBYE, TASK3!

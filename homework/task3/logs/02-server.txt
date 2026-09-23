@@ -1,0 +1,17 @@
+Experiment 3: Network Programming and File Operations
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ ./tcp_server
+[server] pid=169865, listening on 127.0.0.1:3339
+[server] log=output/server-records.txt; waiting for one client session.
+[server] connected: 127.0.0.1:41265
+[server] recv #1 (11 bytes): hello linux
+[server] send #1 (11 bytes): HELLO LINUX
+[server] recv #2 (20 bytes): tcp socket + file io
+[server] send #2 (20 bytes): TCP SOCKET + FILE IO
+[server] recv #3 (15 bytes): goodbye, task3!
+[server] send #3 (15 bytes): GOODBYE, TASK3!
+[server] client EOF; processed 3 messages.
+[server] records saved; sockets closed.
+[exit status: 0]
+

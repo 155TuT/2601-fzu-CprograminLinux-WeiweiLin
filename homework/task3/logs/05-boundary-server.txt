@@ -1,0 +1,7 @@
+[server] pid=169933, listening on 127.0.0.1:3339
+[server] log=output/boundary-server.txt; waiting for one client session.
+[server] connected: 127.0.0.1:41275
+[server] recv #1 (19 bytes): ok after long input
+[server] send #1 (19 bytes): OK AFTER LONG INPUT
+[server] client EOF; processed 1 messages.
+[server] records saved; sockets closed.

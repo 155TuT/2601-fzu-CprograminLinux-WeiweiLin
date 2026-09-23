@@ -1,0 +1,28 @@
+Experiment 3: Network Programming and File Operations
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ cat data/messages.txt
+hello linux
+tcp socket + file io
+goodbye, task3!
+[exit status: 0]
+
+$ cat output/replies.txt
+HELLO LINUX
+TCP SOCKET + FILE IO
+GOODBYE, TASK3!
+[exit status: 0]
+
+$ cat output/server-records.txt
+session: pid=169865, listen=127.0.0.1:3339
+recv #1 (11 bytes): hello linux
+send #1 (11 bytes): HELLO LINUX
+recv #2 (20 bytes): tcp socket + file io
+send #2 (20 bytes): TCP SOCKET + FILE IO
+recv #3 (15 bytes): goodbye, task3!
+send #3 (15 bytes): GOODBYE, TASK3!
+[exit status: 0]
+
+$ tr 'a-z' 'A-Z' < data/messages.txt | diff -u - output/replies.txt
+[exit status: 0]
+

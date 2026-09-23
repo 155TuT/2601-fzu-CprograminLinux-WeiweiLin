@@ -1,0 +1,19 @@
+Experiment 3: Network Programming and File Operations
+Ubuntu 24.04.2 LTS / GCC 13.3.0 / GNU Make 4.3
+
+$ make clean
+rm -f tcp_server tcp_client server.o client.o net.o
+[exit status: 0]
+
+$ make
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c server.c -o server.o
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c net.c -o net.o
+gcc  -o tcp_server server.o net.o 
+gcc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Wpedantic -O0 -g -c client.c -o client.o
+gcc  -o tcp_client client.o net.o 
+[exit status: 0]
+
+$ make
+make: Nothing to be done for 'all'.
+[exit status: 0]
+

@@ -1,0 +1,1 @@
+Each conversation has its own process, history and log.

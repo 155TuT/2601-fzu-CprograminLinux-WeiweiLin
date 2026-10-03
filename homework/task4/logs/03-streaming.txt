@@ -1,0 +1,15 @@
+$ Client B: actual stdout and observed durable progress
+t=0.247s A=6 B=6 bytes; both pending
+t=0.248s B=6 bytes; done=0
+t=0.476s B=11 bytes; done=0
+t=0.696s B=17 bytes; done=0
+t=0.917s B=22 bytes; done=0
+t=1.137s B=28 bytes; done=0
+
+[client] session=fba6a6b28156f01a5430d374849bf985 checkpoint=/tmp/task4-demo-9pan414x/b.ckpt
+[client] turn=1 resume=0 prompt=27 bytes
+[client] completed turn=1 bytes=58
+Persistent byte offsets let a disconnected client resume.
+
+PASS: a nonempty prefix existed before END; byte count grew over time.
+[exit status: 0]

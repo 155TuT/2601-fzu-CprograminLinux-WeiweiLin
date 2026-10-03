@@ -1,0 +1,18 @@
+$ make clean
+rm -rf build bin
+[exit status: 0]
+$ make -j4 CFLAGS=-std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/backend/corpus.c -o build/backend/corpus.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/server/main.c -o build/server/main.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/storage/session.c -o build/storage/session.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/net/protocol.c -o build/net/protocol.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/storage/files.c -o build/storage/files.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/client/main.c -o build/client/main.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/storage/checkpoint.c -o build/storage/checkpoint.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -Werror -MMD -MP -c src/generator/main.c -o build/generator/main.o
+gcc  -o bin/stream_server build/server/main.o build/storage/session.o build/backend/corpus.o build/net/protocol.o build/storage/files.o
+gcc  -o bin/text_generator build/generator/main.o build/net/protocol.o
+gcc  -o bin/stream_client build/client/main.o build/storage/checkpoint.o build/net/protocol.o build/storage/files.o
+[exit status: 0]
+$ make -q
+[exit status: 0]

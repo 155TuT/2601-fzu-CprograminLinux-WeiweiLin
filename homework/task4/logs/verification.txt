@@ -1,0 +1,14 @@
+PASS 01: real clients: multiple questions per connection; isolated tokens, context, turn files and logs
+PASS 02: two real clients stream concurrently; killing one preserves the other and its checkpoint resumes exactly
+PASS 03: split/coalesced TCP frames, multi-frame UTF-8 input, COMMIT gate, complete-codepoint DELTAs and paced output
+PASS 04: empty question / file, exact 4096-byte prompt, complete rejection of long/NUL lines, final line without LF and /quit
+PASS 05: invalid magic/type/token/length/order/NUL/truncated frames and aggregate prompt overflow rejected; worker deadline and server survival
+PASS 06: idempotent completed-request replay, UTF-8 resume boundaries, offset bounds, changed prompt, sequential IDs and exclusive session lock
+PASS 07: graceful server shutdown and SIGKILL both stop descendants; restart resumes saved turn without loss/duplication or corpus reselection
+PASS 08: slow first token remains live via non-progress heartbeats; real client idle timeout survives; failed/missing/invalid-UTF-8 generators retain recoverable state
+PASS 09: checkpoint exclusive lock, malformed file, missing parent and symlink rejection protect saved client data
+PASS 10: independent random regular-.txt selection; empty/invalid corpus handling; standalone UTF-8 resume; strict program argument validation
+PASS 11: independent fake server: client rejects wrong request/offset, invalid DELTA, bad END/magic/length and missing/truncated replies without saving partial output
+PASS 12: connection capacity leaves admitted client healthy; slots are reusable; forged log/state paths preserve files; missing eligible corpus fails cleanly
+PASS 13: incremental checkpoint journal: same input rerun creates no extra turns, torn body/header recover, complete checksum corruption and shorter input fail without overwriting
+All 13 integration checks passed (15.2s).

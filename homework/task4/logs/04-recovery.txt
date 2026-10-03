@@ -1,0 +1,15 @@
+$ Re-run client A using the same checkpoint and original input
+[client] session=a0ba7ee94b3790606271ad4f84dc4c46 checkpoint=/tmp/task4-demo-9pan414x/a.ckpt
+[client] resuming pending answer; durable prefix=6 bytes
+[client] turn=1 resume=6 prompt=21 bytes
+[client] completed turn=1 bytes=56
+[client] turn=2 resume=0 prompt=22 bytes
+[client] completed turn=2 bytes=58
+ing starts before the complete response is ready.
+
+Persistent byte offsets let a disconnected client resume.
+
+Original turn-1 source == recovered response: 56 bytes
+Final request=2; consumed input lines=2
+PASS: pending turn resumed; first question was not submitted again.
+[exit status: 0]

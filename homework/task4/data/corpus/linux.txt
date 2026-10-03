@@ -1,0 +1,5 @@
+Linux makes process boundaries visible: fork creates a child, exec replaces its program, and wait collects its final status.
+每个会话保存自己的输入、响应和进度。客户端慢慢发送文字，服务端确认完整输入后，启动独立的文本生成器。
+A pipe carries each generated UTF-8 character to the server; TCP frames carry it to the client without mixing protocol headers into the displayed text.
+网络断开时，已持久化的字节数就是恢复位置。重新连接会继续同一篇随机选中的语料，不会再随机选择另一篇。
+Small interfaces make a future local model backend easier to add while preserving sessions, streaming, and recovery.

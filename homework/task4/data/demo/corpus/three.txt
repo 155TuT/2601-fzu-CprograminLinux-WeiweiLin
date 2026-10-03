@@ -1,0 +1,1 @@
+Persistent byte offsets let a disconnected client resume.

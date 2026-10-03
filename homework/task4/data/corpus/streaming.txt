@@ -1,0 +1,5 @@
+Streaming output lets the reader see an answer as it grows, one complete Unicode character at a time.
+生成速度可以设为每秒一个字符，也可以设为每秒几十个字符。速率为零表示尽快输出，由管道与网络的背压限制实际速度。
+The corpus generator is deliberately separate from the server. Today it reads a text file; a future backend can read a prompt and context, then run model inference.
+输入流、输出流与心跳消息具有各自的帧类型。客户端按请求编号和字节偏移识别响应，重连后只接收尚未持久化的部分。
+Durable offsets turn a temporary disconnect into a pause instead of a new conversation.

@@ -1,0 +1,2 @@
+user: first question from A
+assistant: Streaming starts before the complete response is ready.

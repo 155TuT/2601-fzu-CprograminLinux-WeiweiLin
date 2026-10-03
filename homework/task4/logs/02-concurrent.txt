@@ -1,0 +1,22 @@
+$ ./bin/stream_server --port 0 --rate 25 --corpus data/demo/corpus
+$ ./bin/stream_client --checkpoint A.ckpt --input A.txt
+$ ./bin/stream_client --checkpoint B.ckpt --input B.txt
+[server] pid=46608 listening on 127.0.0.1:35790 backend=corpus rate=25 chars/s
+[worker 46612] connected session=fba6a6b28156f01a5430d374849bf985
+[worker 46611] connected session=a0ba7ee94b3790606271ad4f84dc4c46
+[worker 46612] session=fba6a6b28156f01a5430d374849bf985 turn=1 generator=46625 resume=0
+[worker 46611] session=a0ba7ee94b3790606271ad4f84dc4c46 turn=1 generator=46624 resume=0
+
+t=0.247s A=6 B=6 bytes; both pending
+t=0.248s B=6 bytes; done=0
+t=0.476s B=11 bytes; done=0
+t=0.696s B=17 bytes; done=0
+t=0.917s B=22 bytes; done=0
+t=1.137s B=28 bytes; done=0
+Client A terminated: exit=143; durable prefix=6 bytes
+Client B continued: exit=0; complete bytes=58
+A session=a0ba7ee94b3790606271ad4f84dc4c46
+B session=fba6a6b28156f01a5430d374849bf985
+PASS: distinct sessions, workers, generators and log directories.
+PASS: terminating A did not stop B.
+[exit status: 0]

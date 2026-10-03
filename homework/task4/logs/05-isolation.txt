@@ -1,0 +1,19 @@
+$ Inspect A's context and independently saved turn files
+user: first question from A
+assistant: Streaming starts before the complete response is ready.
+
+B context size=0 bytes before first turn
+
+A events.log:
+pid=46611 event=connected request=0 offset=0
+pid=46611 event=generate request=1 offset=0
+pid=46611 event=disconnected request=0 offset=0
+pid=46645 event=connected request=0 offset=0
+pid=46645 event=generate request=1 offset=6
+pid=46645 event=completed request=1 offset=56
+pid=46645 event=generate request=2 offset=0
+pid=46645 event=completed request=2 offset=58
+pid=46645 event=disconnected request=0 offset=0
+PASS: A's turn 2 received only A's completed turn 1 context.
+PASS: response.txt matches immutable source.txt byte for byte.
+[exit status: 0]

@@ -1,0 +1,5 @@
+A reliable conversation needs a stable identity and a stable source of truth.
+提交前的输入可以逐段上传。提交后的响应有固定语料和独立状态文件，服务端重启后仍能找到原来的会话。
+Offsets count bytes rather than displayed columns. This matters because an English letter occupies one UTF-8 byte, while a Chinese character usually occupies three.
+检查点只能停在完整字符的边界。保存进度后再确认，可以避免恢复时遗漏输出；请求编号则帮助区分同一会话里的多轮交流。
+The replacement backend receives source, prompt, context, rate, and offset through a small interface so that transport code stays readable.

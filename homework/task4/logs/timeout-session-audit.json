@@ -1,0 +1,48 @@
+{
+  "checked_utc": "2026-10-14T02:55:14.825258+00:00",
+  "read_only": true,
+  "sessions": [
+    {
+      "checkpoint": "state/clients/session-P5E8kV/checkpoint.ckpt",
+      "session": "d60a0f2cef6c683c8288d605d3f18595",
+      "request": 1,
+      "client_answer_bytes": 0,
+      "client_done": 0,
+      "client_sha256": "27c0ebfb0ad1ae0ef20c915e5b7630b3385d249240ac19740f8cb75f8b465481",
+      "server_answer_bytes": 0,
+      "server_done": false,
+      "client_prefix_matches_server": true,
+      "context_tokens": 16384,
+      "prompt_tokens": 17,
+      "attempt_max_tokens": 2048,
+      "generated_tokens": 1887,
+      "phase": "generating",
+      "stop_type": null,
+      "elapsed_seconds": 33.31789944800039,
+      "client_last_write_local": "2026-10-14T10:47:52.486323+08:00",
+      "server_metrics_write_local": "2026-10-14T10:48:24.503126+08:00",
+      "disconnected_local": "2026-10-14T10:48:24.699392+08:00"
+    },
+    {
+      "checkpoint": "state/clients/session-LlTbey/checkpoint.ckpt",
+      "session": "35da4fcf189a43c9333a496fd0fcc971",
+      "request": 1,
+      "client_answer_bytes": 1489,
+      "client_done": 0,
+      "client_sha256": "308a38b9fc8a41ee4fe4ecba530a79c3f111f8bc8146499d76a82703607bd89e",
+      "server_answer_bytes": 2044,
+      "server_done": true,
+      "client_prefix_matches_server": true,
+      "context_tokens": 16384,
+      "prompt_tokens": 12,
+      "attempt_max_tokens": 2048,
+      "generated_tokens": 777,
+      "phase": "completed",
+      "stop_type": "eos",
+      "elapsed_seconds": 11.113427676000356,
+      "client_last_write_local": "2026-10-14T10:49:11.874003+08:00",
+      "server_metrics_write_local": "2026-10-14T10:49:13.498158+08:00",
+      "disconnected_local": "2026-10-14T10:49:29.873670+08:00"
+    }
+  ]
+}

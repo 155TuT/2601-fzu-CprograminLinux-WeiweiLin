@@ -1,0 +1,15 @@
+{
+  "source": "Deterministic UI fixture; not Qwen generation or model performance.",
+  "captured_at": "2026-10-14T13:11:25.480032+08:00",
+  "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client",
+  "client_size": 395304,
+  "client_mtime_ns": 1791954644744952266,
+  "method": "Actual C client on an owned all-stdio PTY; Ctrl+L full redraw archived verbatim. Only the replay xterm will be screenshot.",
+  "columns": 60,
+  "rows": 18,
+  "client_pid": 420125,
+  "client_alive": true,
+  "ansi_bytes": 1519,
+  "description": "Injected inference error stays inside the conversation; checkpoint remains pending and a Chinese correction is editable in the same living client process.",
+  "draft": "question>  请改用两句话回答（未发送）"
+}

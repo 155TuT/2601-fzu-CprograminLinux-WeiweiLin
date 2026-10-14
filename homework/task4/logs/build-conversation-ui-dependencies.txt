@@ -1,0 +1,43 @@
+$ make -q
+
+[exit status: 0]
+$ make -n -W include/task4/screen.h
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/terminal.c -o build/client/terminal.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/view.c -o build/client/view.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/screen.c -o build/client/screen.o
+mkdir -p bin
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/view.o build/client/screen.o build/client/status.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/net/discovery.o build/storage/files.o
+[exit status: 0]
+$ make -n -W include/task4/terminal.h
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/main.c -o build/client/main.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/terminal.c -o build/client/terminal.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/view.c -o build/client/view.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/status.c -o build/client/status.o
+mkdir -p bin
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/view.o build/client/screen.o build/client/status.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/net/discovery.o build/storage/files.o
+[exit status: 0]
+$ make -n -W include/task4/client_state.h
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/main.c -o build/client/main.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/state.c -o build/client/state.o
+mkdir -p bin
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/view.o build/client/screen.o build/client/status.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/net/discovery.o build/storage/files.o
+[exit status: 0]
+$ make -n -W include/task4/checkpoint.h
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/main.c -o build/client/main.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/state.c -o build/client/state.o
+mkdir -p build/storage
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/storage/checkpoint.c -o build/storage/checkpoint.o
+mkdir -p bin
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/view.o build/client/screen.o build/client/status.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/net/discovery.o build/storage/files.o
+[exit status: 0]

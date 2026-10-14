@@ -1,0 +1,9 @@
+$ python3 scripts/model/tui_smoke.py --capture
+Actual all-stdio PTY; existing local Qwen model; isolated temporary sessions.
+Healthy model endpoint: http://127.0.0.1:37846
+turn=1 done=1 answer='\n\n收到' budget=4096 context=16384
+turn=2 done=1 answer='\n\nSPRUCE' budget=4096 context=16384
+PASS: actual Qwen completed two turns with 4096 output budget and 16k context.
+PASS: both turns archived; /new and /switch restored the selected conversation.
+PASS: clean TUI exit restored the original terminal settings.
+Elapsed: 19.013s

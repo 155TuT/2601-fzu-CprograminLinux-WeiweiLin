@@ -1,0 +1,12 @@
+PASS 01: PTY /stop preserves the connection; THINK and STATUS remain outside final checkpoint; in-flight answer prefix and CANCELLED persist
+PASS 02: redirected stdout is final-only; all-stdio --plain bypasses TUI; legacy/JSON STATUS are hidden by default and both appear only with --verbose-status
+PASS 03: steering is durable before CANCEL; merged correction starts the next turn; END/CANCEL race and duplicate old terminal do not desynchronize
+PASS 04: actual PTY Ctrl+C cancels thinking and remains connected; /quit during an answer waits for cancellation ACK then exits normally
+PASS 05: combined steering length is checked before cancellation; rejected correction leaves the active turn and checkpoint intact
+PASS 06: durable steering survives client death, cancels old turn first, submits once, recognizes stale sidecar and rejects wrong-session/symlink queues without data loss
+PASS 07: CANCELLED journal survives reconnect and --resume-only does not restart an explicitly cancelled turn
+PASS 08: client rejects invalid thinking UTF-8/offsets, STATUS answer offset and mismatched cancellation terminal without advancing its final checkpoint
+PASS 09: batch --cancel-pending immediately cancels a saved failed turn; cancelled and brand-new checkpoints send no spurious turn
+PASS 10: real C server: one cancelled client remains connected, concurrent client finishes and cancelled half-turn never enters later context
+PASS 11: adapter stdout EOF (with or without END) before child exit stays live and cancellable; no false done, child reaped and same session reusable
+All 11 control integration checks passed (7.7s).

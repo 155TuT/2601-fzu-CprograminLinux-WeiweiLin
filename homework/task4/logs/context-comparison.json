@@ -1,0 +1,74 @@
+[
+  {
+    "case": "same_history_thinking",
+    "thinking": true,
+    "seed": 42,
+    "cache_prompt": false,
+    "prompt_tokens": 68,
+    "elapsed_seconds": 4.37,
+    "stop_type": "eos",
+    "context_truncated": false,
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 68,
+      "prompt_ms": 297.621,
+      "prompt_per_token_ms": 4.376779411764706,
+      "prompt_per_second": 228.47850118103227,
+      "predicted_n": 294,
+      "predicted_ms": 4070.792,
+      "predicted_per_token_ms": 13.893488054607507,
+      "predicted_per_second": 71.97616581736429
+    },
+    "closed_thinking": true,
+    "output_bytes": 1496,
+    "output": "嗯，用户问我的知识库截止到哪天。这个问题需要明确我的训练截止时间。作为 Qwen3.5，根据官方信息，应该是 2026 年。不过需要确认一下具体的版本信息。\n\n之前回答过类似问题吗？用户可能关心知识时效性，比如在特定领域的最新数据是否有覆盖。需要准确说明截止时间，避免误导。另外，用户可能有实际使用场景，比如查询较新的事件或技术，但作为 AI，我的训练数据有固定截止点，无法获取实时信息。\n\n根据提供的资料，Qwen3.5 的训练数据截止到 2026 年。需要明确告知用户这个时间点，并说明之后的信息可能不在训练范围内，建议用户提供具体需求以便我进一步协助。同时保持友好，邀请提问。\n\n需要确保回答准确，避免猜测。如果用户需要更详细的时间范围或版本差异，可能需要进一步澄清，但通常直接给出截止日期即可。最后检查是否有错误，比如是否和之前其他版本的截止时间混淆，Qwen3.5 确实截止到 2026 年。\n</think>\n\n我的训练数据截至 **2026 年**。这意味着我的知识更新到该时间点之后可能无法获取实时更新的信息（例如最新的事件、技术或行业动态）。如果您需要查询特定领域的较新信息，建议结合其他实时工具或资料进行补充验证！😊 有什么具体问题随时告诉我，我会尽力基于已知信息提供帮助～"
+  },
+  {
+    "case": "same_history_no_thinking",
+    "thinking": false,
+    "seed": 42,
+    "cache_prompt": false,
+    "prompt_tokens": 70,
+    "elapsed_seconds": 0.803,
+    "stop_type": "eos",
+    "context_truncated": false,
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 70,
+      "prompt_ms": 68.497,
+      "prompt_per_token_ms": 0.9785285714285714,
+      "prompt_per_second": 1021.9425668277443,
+      "predicted_n": 53,
+      "predicted_ms": 733.106,
+      "predicted_per_token_ms": 14.098192307692308,
+      "predicted_per_second": 70.93107954374948
+    },
+    "closed_thinking": false,
+    "output_bytes": 260,
+    "output": "作为 Qwen3.5，我的知识截止时间是**2026 年**。这意味着我的训练数据涵盖到该时间点为止的信息，之后的内容我暂时无法知晓。如果您有具体领域的查询，我会尽力基于现有知识为您提供准确回答！"
+  },
+  {
+    "case": "new_session_thinking",
+    "thinking": true,
+    "seed": 42,
+    "cache_prompt": false,
+    "prompt_tokens": 15,
+    "elapsed_seconds": 4.514,
+    "stop_type": "eos",
+    "context_truncated": false,
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 15,
+      "prompt_ms": 54.378,
+      "prompt_per_token_ms": 3.6252,
+      "prompt_per_second": 275.84684982897494,
+      "predicted_n": 320,
+      "predicted_ms": 4457.868,
+      "predicted_per_token_ms": 13.974507836990597,
+      "predicted_per_second": 71.55887074269583
+    },
+    "closed_thinking": true,
+    "output_bytes": 1537,
+    "output": "好的，用户问我的知识库截止到哪天。我需要先确认一下自己的更新时间。根据之前的信息，我是 Qwen3.5，截至 2026 年的知识截止时间。不过用户可能希望知道具体的日期范围，比如训练数据截止到哪一年哪个月。\n\n记得官方通常会在模型介绍中提到训练数据的截止时间，但具体到月份可能不太明确。作为通义实验室的产品，我的知识库更新可能基于最新的公开信息和技术报告。需要准确回答，不能随意编造日期。\n\n根据 Qwen3.5 的描述，知识截止时间是 2026 年。但用户可能想知道更具体的时间，比如 2026 年的哪个月份。由于没有确切数据，应该说明截至 2026 年，并提醒用户如果需要特定信息，建议通过官方渠道或公开资料确认最新情况。\n\n另外，要确保回答符合事实，不夸大更新内容。避免提到未公开的具体月份，保持诚实和准确。同时，可能需要在回答中引导用户询问其他问题，比如功能相关的支持，但当前问题只需要回答截止日期。\n\n总结：回答应说明知识截止时间是 2026 年，并建议如有具体问题可进一步查询官方信息。\n</think>\n\n我的知识库更新至 **2026 年**。作为 Qwen3.5，我基于截至该年份的公开数据、技术文档和用户反馈进行训练和优化。不过，对于特定时间点的实时信息（如最新政策或事件），建议您通过官方渠道或权威来源进一步核实哦~"
+  }
+]

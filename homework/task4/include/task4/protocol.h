@@ -18,7 +18,13 @@ enum t4_frame_type {
     T4_DELTA = 6,
     T4_END = 7,
     T4_ERROR = 8,
-    T4_HEARTBEAT = 9
+    T4_HEARTBEAT = 9,
+    T4_THINK = 10,       /* 独立思考流，不推进 final answer 的恢复游标。 */
+    T4_CANCEL = 11,      /* 结束当前轮次；断线本身不等于取消。 */
+    T4_CANCELLED = 12,
+    T4_STATUS = 13,
+    T4_PROBE = 14,      /* Optional read-only service identity check, before HELLO. */
+    T4_SERVICE = 15     /* 32-byte instance nonce; never a session/history record. */
 };
 
 struct t4_frame {

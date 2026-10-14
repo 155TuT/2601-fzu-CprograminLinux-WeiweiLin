@@ -1,0 +1,8 @@
+PASS T01: waiter accepts a normal exit between process checks
+PASS T02: all-stdio PTY: Unicode backspace/left/delete, Home/End and history edit whole characters; normal exit restores termios
+PASS T03: Unicode draft survives asynchronous streaming, resize and END; bracketed multiline paste stays editable and requires explicit Enter
+PASS T04: real tty Ctrl+C cancels and keeps the connection reusable; normal and SIGTERM exits restore terminal settings
+PASS T05: identical default commands create independent auto sessions; explicit resume preserves history; held lock and missing resume fail without changing saved data
+PASS T06: real shell job-control Ctrl+Z/fg restores the input UI and Unicode draft while retaining the session lock; shell stays usable after exit
+PASS T07: long Unicode draft scrolls/resizes without loss; Ctrl+A/E/U/K/W edit correctly; idle Ctrl+C clears immediately without waiting for another key
+All 7 terminal checks passed (10.3s).

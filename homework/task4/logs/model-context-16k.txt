@@ -1,0 +1,14 @@
+actual tokenized prompt: 5529 tokens; bytes: 38636
+slot=0 context=16384 tokens_evaluated=5529 stop_type=eos truncated=False output='READY' elapsed=3.768s
+slot=1 context=16384 tokens_evaluated=5529 stop_type=eos truncated=False output='READY' elapsed=4.040s
+GPU after: NVIDIA GeForce RTX 5060 Laptop GPU, 8151 MiB, 5921 MiB, 79 %
+PASS: two 16384-token slots simultaneously accepted >4096-token prompts without context truncation.
+Default max_tokens remains 2048; probe output budget was only 16 tokens.
+[exit status: 0]
+
+Startup: bash scripts/model/serve.sh gpu
+New llama-server PID: 153917; endpoint=127.0.0.1:8081
+--ctx-size 32768 --parallel 2 --no-kv-unified; /props n_ctx=16384; /slots n_ctx=16384 each
+Loaded GPU usage: 5967 MiB / 8151 MiB; previous 8081 model process was absent, so none was stopped.
+Old pending turns retain their frozen 4096-token ceiling; new turns use 16384.
+max_tokens remains 2048; all model/build/template identities other than capacity remain strict.

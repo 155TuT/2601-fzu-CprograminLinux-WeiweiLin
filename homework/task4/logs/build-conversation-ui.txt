@@ -1,0 +1,2 @@
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/storage/checkpoint.c -o build/storage/checkpoint.o
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/view.o build/client/screen.o build/client/status.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/net/discovery.o build/storage/files.o

@@ -1,0 +1,7 @@
+PASS P01: default C bind(0) avoids occupied ports; read-only PROBE creates no session and worker drops master lease; no-port client discovers/streams a real UTF-8 turn
+PASS P02: same-state duplicate startup reports existing service without replacing its endpoint; explicit --port bypasses discovery, occupied port and --host-only fail clearly
+PASS P03: multiple services require explicit state for new sessions; saved token selects its own root, while copied-token ambiguity is rejected instead of arbitrary routing
+PASS P04: SIGKILL stale registry is ignored; parent/worker leases release, restart changes port/nonce, and token-only checkpoint resumes its exact pinned UTF-8 answer
+PASS P05: malformed, symlink, FIFO and oversized registry entries are skipped nonblocking; unsafe explicit-state/registry paths are rejected
+PASS P06: a forged live lease/endpoint leading to the wrong TCP service receives only PROBE; mismatched nonce prevents HELLO and checkpoint creation
+All 6 discovery integration checks passed (3.9s).

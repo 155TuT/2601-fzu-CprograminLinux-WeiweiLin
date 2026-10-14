@@ -127,7 +127,10 @@ static int context_build(struct t4_session *s, uint32_t request)
     for (uint32_t i = 1; i < request; ++i) {
         char directory[PATH_MAX], path[PATH_MAX];
         if (turn_path(directory, s->directory, i) < 0 ||
-            t4_path(path, directory, "done") < 0 || access(path, F_OK) < 0) goto cleanup;
+            t4_path(path, directory, "cancelled") < 0) goto cleanup;
+        /* Explicit cancellation is terminal, but partial output is not history. */
+        if (access(path, F_OK) == 0) continue;
+        if (t4_path(path, directory, "done") < 0 || access(path, F_OK) < 0) goto cleanup;
         if (t4_write_all(fd, "user: ", 6) < 0 ||
             t4_path(path, directory, "prompt.txt") < 0 || copy_file(fd, path) < 0 ||
             t4_write_all(fd, "\nassistant: ", 12) < 0 ||
@@ -142,7 +145,7 @@ cleanup:
 
 static void staging_remove(const char *directory)
 {
-    const char *names[] = {"prompt.txt", "source.txt", "response.txt"};
+    const char *names[] = {"prompt.txt", "response.txt", "backend.txt", "model-config.json"};
     char path[PATH_MAX];
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i)
         if (t4_path(path, directory, names[i]) == 0) unlink(path);
@@ -152,7 +155,7 @@ static void staging_remove(const char *directory)
 int t4_turn_open(struct t4_session *s, uint32_t request,
                  const unsigned char *prompt, uint32_t length,
                  char directory[PATH_MAX], uint32_t *cached, int *done,
-                 const char *corpus, const struct t4_backend *backend)
+                 const char *model_config, const struct t4_backend *backend)
 {
     char path[PATH_MAX];
     struct stat st;
@@ -169,8 +172,13 @@ int t4_turn_open(struct t4_session *s, uint32_t request,
         fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
         if (fd < 0 || t4_write_all(fd, prompt, length) < 0 || fsync(fd) < 0) goto staged;
         close(fd); fd = -1;
-        if (backend->prepare(corpus, staging) < 0 ||
-            t4_path(path, staging, "response.txt") < 0) goto staged;
+        if (backend->prepare(model_config, staging) < 0 ||
+            t4_path(path, staging, "backend.txt") < 0) goto staged;
+        fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+        if (fd < 0 || t4_write_all(fd, backend->name, strlen(backend->name)) < 0 || fsync(fd) < 0)
+            goto staged;
+        close(fd); fd = -1;
+        if (t4_path(path, staging, "response.txt") < 0) goto staged;
         fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
         if (fd < 0 || fsync(fd) < 0) goto staged;
         close(fd); fd = -1;
@@ -181,6 +189,18 @@ staged:
         if (fd >= 0) close(fd);
         if (result < 0) { int saved = errno; staging_remove(staging); errno = saved; return -1; }
     } else if (!S_ISDIR(st.st_mode)) { errno = ENOTDIR; return -1; }
+    /* Resume only turns explicitly created for this model backend. */
+    if (t4_path(path, directory, "backend.txt") < 0) return -1;
+    int identity = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (identity < 0) return -1;
+    {
+        char name[64];
+        ssize_t size = read(identity, name, sizeof(name));
+        close(identity);
+        if (size != (ssize_t)strlen(backend->name) || memcmp(name, backend->name, (size_t)size)) {
+            errno = EINVAL; return -1;
+        }
+    }
     if (t4_path(path, directory, "prompt.txt") < 0) return -1;
     int fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     unsigned char original[T4_MAX_PROMPT + 1];
@@ -195,16 +215,21 @@ staged:
     *cached = (uint32_t)st.st_size;
     if (t4_path(path, directory, "done") < 0) return -1;
     *done = access(path, F_OK) == 0;
+    if (t4_path(path, directory, "cancelled") < 0) return -1;
+    if (access(path, F_OK) == 0) *done = 2;
     return t4_event(s, *done ? "replay" : "generate", request, *cached);
 }
 
-int t4_turn_done(const char *directory)
+static int turn_terminal(const char *directory, const char *marker)
 {
     char path[PATH_MAX];
-    if (t4_path(path, directory, "done") < 0) return -1;
+    if (t4_path(path, directory, marker) < 0) return -1;
     int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) return -1;
     int result = fsync(fd);
     close(fd);
     return result < 0 ? -1 : t4_directory_sync(directory);
 }
+
+int t4_turn_done(const char *directory) { return turn_terminal(directory, "done"); }
+int t4_turn_cancel(const char *directory) { return turn_terminal(directory, "cancelled"); }

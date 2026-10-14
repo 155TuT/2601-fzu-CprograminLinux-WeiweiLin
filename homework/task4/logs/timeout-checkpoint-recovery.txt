@@ -1,0 +1,6 @@
+Read-only source: existing completed self-introduction; all recovery writes use temporary copies.
+Original checkpoint: request=1 offset=1489 done=0
+Real all-stdio PTY client: exit=0, recovered bytes=2044, done=1
+Cache replay: 555 missing bytes, no model adapter/generation started
+PASS: exact complete answer restored; no duplication or missing UTF-8 bytes; original terminal settings restored.
+PASS: all original checkpoint/session file hashes unchanged; existing user services untouched.

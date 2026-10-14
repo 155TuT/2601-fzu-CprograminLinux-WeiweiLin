@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """用真实 C 程序与独立 TCP 对端验证流式输出、会话隔离和持久恢复。
 
-只使用 Python 标准库；语料、输入、状态和自定义故障生成器均位于临时目录。
+只使用 Python 标准库；模型响应夹具、输入、状态和故障适配器配置均位于临时目录。
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +24,7 @@ import traceback
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from checkpoint import load as load_checkpoint
+from mock_adapter import configuration as fixture_config
 
 MAGIC = 0x54345331
 HELLO, WELCOME, BEGIN, INPUT, COMMIT, DELTA, END, ERROR, HEARTBEAT = range(1, 10)
@@ -117,21 +118,21 @@ def lock_released(path):
 
 
 class Server:
-    def __init__(self, home, *, source="流式 A🙂B\n".encode(), rate=0, generator=None,
-                 idle=600000, capacity=32, state=None, corpus=None):
+    def __init__(self, home, *, source="流式 A🙂B\n".encode(), rate=0, adapter=None,
+                 idle=600000, capacity=32, state=None, model_config=None):
         self.home = Path(home)
         self.state = Path(state) if state is not None else self.home / "sessions"
-        self.corpus = Path(corpus) if corpus is not None else self.home / "corpus"
-        self.corpus.mkdir(exist_ok=True)
-        if corpus is None:
-            (self.corpus / "only.txt").write_bytes(source)
+        if adapter is None:
+            adapter = ROOT / ("src/model/adapter.py" if model_config is not None else "tests/mock_adapter.py")
+        self.model_config = Path(model_config) if model_config is not None else fixture_config(self.home, source, rate)
         self.stdout = self.home / f"server-{time.monotonic_ns()}.log"
         self.output = self.stdout.open("wb")
         self.clients = []
         self.proc = subprocess.Popen([
             str(ROOT / "bin/stream_server"), "--port", "0", "--state", str(self.state),
-            "--corpus", str(self.corpus), "--generator", str(generator or ROOT / "bin/text_generator"),
-            "--rate", str(rate), "--idle-ms", str(idle), "--max-clients", str(capacity),
+            "--discovery-dir", str(self.home / "services"),
+            "--adapter", str(adapter), "--backend", "llama", "--model-config", str(self.model_config),
+            "--idle-ms", str(idle), "--max-clients", str(capacity),
         ], cwd=ROOT, stdin=subprocess.DEVNULL, stdout=self.output,
            stderr=subprocess.STDOUT, start_new_session=True)
 
@@ -254,8 +255,9 @@ def test_multiturn():
             d = s.state / token
             for index in (1, 2):
                 turn = d / f"turn-{index:08d}"
-                assert (turn / "source.txt").read_bytes() == (turn / "response.txt").read_bytes() == source
-                assert (turn / "done").exists() and b"backend=corpus" in (turn / "generator.log").read_bytes()
+                assert (turn / "response.txt").read_bytes() == source
+                assert (turn / "model-config.json").read_bytes() == s.model_config.read_bytes()
+                assert (turn / "done").exists() and (turn / "backend.txt").read_text().strip() == "llama"
             log = (d / "events.log").read_text()
             assert log.count("event=completed") == 2 and "event=connected" in log
         s.stop()
@@ -428,38 +430,46 @@ def test_restart_recovery():
                 assert active["process"].wait(timeout=4) != 0
                 cp_before = checkpoint(active["cp"])
                 assert cp_before["done"] == 0 and 0 < cp_before["offset"] < len(source)
-                second = Server(temp, source=b"NEW corpus must not replace pinned source", rate=0,
-                                state=first.state, corpus=first.corpus)
-                (first.corpus / "only.txt").write_bytes(b"NEW corpus must not replace pinned source")
+                second = Server(temp, source=b"NEW fixture must not replace frozen response", rate=0,
+                                state=first.state)
                 resumed = second.launch_client("after", cp=active["cp"])
                 suffix, _, cp_after = second.finish_client(resumed)
                 assert cp_after["answer"] == source and cp_after["done"] == 1 and cp_after["request"] == 1
                 assert suffix == source[cp_before["offset"]:] + b"\n"
                 turn = second.state / cp_after["token"] / "turn-00000001"
-                assert (turn / "response.txt").read_bytes() == (turn / "source.txt").read_bytes() == source
+                assert (turn / "response.txt").read_bytes() == source
+                assert (turn / "model-config.json").read_bytes() == first.model_config.read_bytes()
                 assert len(list((second.state / cp_after["token"]).glob("turn-*"))) == 1
             finally:
                 if second:
                     second.close()
                 first.close()
-    passed("graceful server shutdown and SIGKILL both stop descendants; restart resumes saved turn without loss/duplication or corpus reselection")
+    passed("graceful server shutdown and SIGKILL both stop descendants; restart resumes saved turn without loss/duplication or fixture-config replacement")
 
 
-def fake_generator(home, name, body):
+def fake_adapter(home, name, body):
     path = Path(home) / name
-    path.write_text(f"#!{sys.executable}\nimport pathlib, sys, time\n"
-                    "args = dict(zip(sys.argv[1::2], sys.argv[2::2]))\n" + body)
+    path.write_text(f"#!{sys.executable}\nimport pathlib, struct, sys, time\n"
+                    "args = dict(zip(sys.argv[1::2], sys.argv[2::2]))\n"
+                    "def send(kind, offset, payload=b''):\n"
+                    "    sys.stdout.buffer.write(struct.pack('!IIIII', 0x54345331, kind, 0, offset, len(payload)) + payload)\n"
+                    "    sys.stdout.buffer.flush()\n"
+                    "def answer(data):\n"
+                    "    offset = int(args['--offset'])\n"
+                    "    for character in data[offset:].decode('utf-8'):\n"
+                    "        payload = character.encode('utf-8')\n"
+                    "        send(6, offset, payload)\n"
+                    "        offset += len(payload)\n"
+                    "    return offset\n" + body)
     path.chmod(0o700)
     return path
 
 
 def test_heartbeat_and_faults():
-    with tempfile.TemporaryDirectory(prefix="task4-generators-") as temp:
-        slow = fake_generator(temp, "slow", "time.sleep(3.2)\n"
-                              "data=pathlib.Path(args['--source']).read_bytes()\n"
-                              "sys.stdout.buffer.write(data[int(args['--offset']):])\n"
-                              "sys.stdout.buffer.flush()\n")
-        with server(generator=slow, source=b"slow answer") as s:
+    with tempfile.TemporaryDirectory(prefix="task4-adapters-") as temp:
+        slow = fake_adapter(temp, "slow", "time.sleep(3.2)\n"
+                            "send(7, answer(b'slow answer'))\n")
+        with server(adapter=slow) as s:
             with s.connection() as (sock, _):
                 send_turn(sock, b"slow")
                 start = time.monotonic()
@@ -468,26 +478,24 @@ def test_heartbeat_and_faults():
             real = s.launch_client("slow-real", b"question\n", idle=1500)
             out, _, cp = s.finish_client(real)
             assert out == b"slow answer\n" and cp["done"] == 1
-        failure = fake_generator(temp, "failure", "print('deliberate generator failure', file=sys.stderr)\n"
-                                 "sys.stdout.buffer.write(b'valid-prefix')\n"
-                                 "sys.stdout.buffer.flush()\nsys.exit(7)\n")
-        invalid = fake_generator(temp, "invalid", "sys.stdout.buffer.write(b'\\xed\\xa0\\x80')\n"
-                                 "sys.stdout.buffer.flush()\n")
-        for generator in (failure, invalid, Path(temp) / "missing-generator"):
-            with server(generator=generator, source=b"unrelated") as s:
+        failure = fake_adapter(temp, "failure", "print('deliberate adapter failure', file=sys.stderr)\n"
+                               "answer(b'valid-prefix')\nsys.exit(7)\n")
+        invalid = fake_adapter(temp, "invalid", "send(6, 0, b'\\xed\\xa0\\x80')\n")
+        for adapter in (failure, invalid, Path(temp) / "missing-adapter"):
+            with server(adapter=adapter) as s:
                 client = s.launch_client("failure", b"question\n")
                 _, errors, cp = s.finish_client(client, expected=1)
                 assert "generation interrupted" in errors and cp["done"] == 0
                 turn = s.state / cp["token"] / "turn-00000001"
                 assert not (turn / "done").exists()
-                if generator == failure:
+                if adapter == failure:
                     assert cp["answer"] == b"valid-prefix"
-                    assert "deliberate generator failure" in (turn / "generator.log").read_text()
-                elif generator == invalid:
+                    assert "deliberate adapter failure" in (turn / "generator.log").read_text()
+                elif adapter == invalid:
                     assert cp["offset"] == 0
                 else:
-                    assert "exec generator" in (turn / "generator.log").read_text()
-    passed("slow first token remains live via non-progress heartbeats; real client idle timeout survives; failed/missing/invalid-UTF-8 generators retain recoverable state")
+                    assert "can't open file" in (turn / "generator.log").read_text()
+    passed("slow first token remains live via non-progress heartbeats; real client idle timeout survives; failed/missing/invalid-UTF-8 adapters retain recoverable state")
 
 
 def test_checkpoint_errors():
@@ -514,53 +522,24 @@ def test_checkpoint_errors():
     passed("checkpoint exclusive lock, malformed file, missing parent and symlink rejection protect saved client data")
 
 
-def test_corpus_and_parameters():
-    with tempfile.TemporaryDirectory(prefix="task4-corpus-") as temp:
-        home = Path(temp)
-        corpus = home / "choices"
-        corpus.mkdir()
-        choices = {b"first", "第二🙂".encode(), b"third"}
-        for index, data in enumerate(choices):
-            (corpus / f"choice-{index}.txt").write_bytes(data)
-        (corpus / "directory.txt").mkdir()
-        (corpus / "symlink.txt").symlink_to(corpus / "choice-0.txt")
-        (corpus / "ignored.bin").write_bytes(b"not eligible")
-        with server(corpus=corpus) as s:
-            selected = set()
-            for _ in range(16):
-                with s.connection() as (sock, token):
-                    send_turn(sock, b"irrelevant")
-                    result, _ = answer(sock)
-                    assert result in choices
-                    selected.add(result)
-                    assert (s.state / token.decode() / "turn-00000001/source.txt").read_bytes() == result
-            assert len(selected) >= 2, "16 independently randomized selections unexpectedly all equal"
-        for content in (b"", b"bad\0corpus", b"\xc0\xaf", b"\xf4\x90\x80\x80", b"\xe4\xb8"):
-            with server(source=content) as s:
-                client = s.launch_client("corpus-boundary", b"q\n")
-                out, _, cp = s.finish_client(client, expected=0 if not content else 1)
-                assert cp["done"] == (0 if content else 1)
-                if not content:
-                    assert out == b"\n" and cp["offset"] == 0
-        source = home / "direct.txt"
-        source.write_bytes("甲🙂B".encode())
-        direct = subprocess.run([str(ROOT / "bin/text_generator"), "--source", str(source),
-                                 "--offset", "3", "--rate", "0"], capture_output=True, timeout=3)
-        assert direct.returncode == 0 and direct.stdout == "🙂B".encode()
-        for args in (["--offset", "1"], ["--offset", "99"], ["--rate", "-1"], ["--rate", "1x"]):
-            result = subprocess.run([str(ROOT / "bin/text_generator"), "--source", str(source), *args],
-                                    capture_output=True, timeout=3)
-            assert result.returncode == 2, (args, result.stderr)
-        invalid_args = {
-            "stream_server": [["--port", "-1"], ["--port", "65536"], ["--rate", " 1"],
-                              ["--rate", "10001"], ["--max-clients", "0"], ["--bad", "1"], ["--port"]],
-            "stream_client": [["--port", "0"], ["--port", "1x"], ["--idle-ms", "1499"], ["--bad", "1"]],
-        }
-        for executable, variants in invalid_args.items():
-            for args in variants:
-                result = subprocess.run([str(ROOT / "bin" / executable), *args], capture_output=True, timeout=3)
-                assert result.returncode == 2, (executable, args, result.stderr)
-    passed("independent random regular-.txt selection; empty/invalid corpus handling; standalone UTF-8 resume; strict program argument validation")
+def test_response_and_parameters():
+    for content in (b"", b"bad\0response", b"\xc0\xaf", b"\xf4\x90\x80\x80", b"\xe4\xb8"):
+        with server(source=content) as s:
+            client = s.launch_client("response-boundary", b"q\n")
+            out, _, cp = s.finish_client(client, expected=0 if not content else 1)
+            assert cp["done"] == (0 if content else 1)
+            if not content:
+                assert out == b"\n" and cp["offset"] == 0
+    invalid_args = {
+        "stream_server": [["--port", "-1"], ["--port", "65536"], ["--idle-ms", " 1"],
+                          ["--max-clients", "0"], ["--backend", "unknown"], ["--bad", "1"], ["--port"]],
+        "stream_client": [["--port", "0"], ["--port", "1x"], ["--idle-ms", "1499"], ["--bad", "1"]],
+    }
+    for executable, variants in invalid_args.items():
+        for args in variants:
+            result = subprocess.run([str(ROOT / "bin" / executable), *args], capture_output=True, timeout=3)
+            assert result.returncode == 2, (executable, args, result.stderr)
+    passed("empty response and invalid adapter text fail safely; strict program argument validation")
 
 
 def test_client_protocol_validation():
@@ -630,22 +609,20 @@ def test_capacity_and_storage():
         home = Path(temp)
         invalid_state = home / "state-is-file"
         invalid_state.write_bytes(b"keep original data")
-        s = Server(home, state=invalid_state)
-        try:
-            with socket.create_connection(("127.0.0.1", s.port), timeout=3) as sock:
-                sock.sendall(frame(HELLO))
-                assert receive(sock)[0] == ERROR
-            assert invalid_state.read_bytes() == b"keep original data"
-        finally:
-            s.close()
-        corpus = home / "empty-corpus"
-        corpus.mkdir()
-        with server(corpus=corpus) as s:
-            client = s.launch_client("no-corpus", b"question\n")
+        # The master now validates/leases its root before publishing a listener,
+        # so a file masquerading as state must fail at startup, not at HELLO.
+        rejected = subprocess.run([
+            str(ROOT / "bin/stream_server"), "--port", "0", "--state", str(invalid_state),
+            "--discovery-dir", str(home / "services"),
+        ], cwd=ROOT, capture_output=True, timeout=3)
+        assert rejected.returncode == 1 and b"listening on" not in rejected.stdout, rejected
+        assert invalid_state.read_bytes() == b"keep original data"
+        with server(model_config=home / "missing-model-config.json") as s:
+            client = s.launch_client("no-model-config", b"question\n")
             _, errors, cp = s.finish_client(client, expected=1)
             assert "request rejected" in errors and cp["done"] == 0
             assert not list((s.state / cp["token"]).glob("turn-*"))
-    passed("connection capacity leaves admitted client healthy; slots are reusable; forged log/state paths preserve files; missing eligible corpus fails cleanly")
+    passed("connection capacity leaves admitted client healthy; slots are reusable; forged log/state paths preserve files; missing model configuration fails cleanly")
 
 
 def test_checkpoint_journal():
@@ -704,7 +681,7 @@ def main():
         for test in (test_multiturn, test_concurrent_stream, test_wire_streaming,
                      test_input_boundaries, test_protocol_errors, test_replay_and_lock,
                      test_restart_recovery, test_heartbeat_and_faults, test_checkpoint_errors,
-                     test_corpus_and_parameters, test_client_protocol_validation,
+                     test_response_and_parameters, test_client_protocol_validation,
                      test_capacity_and_storage, test_checkpoint_journal):
             test()
         summary = f"All {len(CHECKS)} integration checks passed ({time.monotonic() - started:.1f}s)."

@@ -1,0 +1,15 @@
+{
+  "method": "Actual current C client on an owned all-stdio PTY and local TCP fixture; a fixed 32-delta workload measures emitted terminal bytes.",
+  "command": "python3 tests/verify_mouse_render.py",
+  "result": {
+    "binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client",
+    "geometry": "140x38",
+    "deltas": 32,
+    "delta_bytes": 1,
+    "interval_ms": 45,
+    "ansi_bytes": 3147,
+    "row_addresses": 38,
+    "full_screen_erases": 0
+  },
+  "note": "Terminal output volume, not model throughput or system-call counts."
+}

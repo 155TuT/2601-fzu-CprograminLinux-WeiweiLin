@@ -1,0 +1,17 @@
+{
+  "output": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/screenshots/18-tui-dark-96x28.png",
+  "pixels": [
+    970,
+    542
+  ],
+  "terminal": {
+    "rows": 28,
+    "columns": 96,
+    "xpixels": 970,
+    "ypixels": 542
+  },
+  "method": "verbatim actual ANSI redraw replay; only our owned xterm window captured",
+  "font": "DejaVu Sans Mono",
+  "font_double": "Microsoft YaHei",
+  "font_size": 12
+}

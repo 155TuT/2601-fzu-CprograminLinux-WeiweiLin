@@ -1,0 +1,19 @@
+$ bash scripts/model/serve.sh gpu
+Existing llama-server PIDs: [153917]
+[model] reusing compatible healthy service at http://127.0.0.1:8081; no new model process.
+[model] endpoint registry: /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/.runtime/model-service.json
+After launcher PIDs: [153917]
+Elapsed: 0.098s
+Registry endpoint=http://127.0.0.1:8081; mode=0600; model=Qwen3.5-4B; ctx=16384; slots=2
+PASS: compatible existing Qwen service reused; no new llama-server process and no user process stopped.
+[exit status: 0]
+
+Final launcher after CPU/FIFO/parameter fixes:
+$ bash scripts/model/serve.sh gpu
+Before PIDs: [153917]
+[model] reusing compatible healthy service at http://127.0.0.1:8081; no new model process.
+[model] endpoint registry: /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/.runtime/model-service.json
+After PIDs: [153917]
+Elapsed: 0.066s
+PASS: same existing model process; no new GPU load; existing service left running.
+[exit status: 0]

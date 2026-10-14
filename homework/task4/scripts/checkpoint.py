@@ -32,7 +32,7 @@ def load(path):
         if len(prompt) != plen or b"\0" in prompt:
             raise ValueError("invalid prompt")
         answer = bytearray()
-        done = False
+        done = 0
         torn = 0
         while header := stream.read(16):
             if len(header) != 16:
@@ -53,11 +53,35 @@ def load(path):
                     raise ValueError("invalid character")
                 answer.extend(body)
             elif kind == 7 and not length:
-                done = True
+                done = 1
+            elif kind == 12 and not length:
+                done = 2
             else:
                 raise ValueError("invalid journal event")
+    queued = b""
+    sidecar = Path(str(path) + ".steer")
+    if sidecar.is_symlink():
+        raise ValueError("steering sidecar must not be a symlink")
+    if sidecar.exists():
+        with sidecar.open("rb") as stream:
+            if stream.readline() != b"T4STEER1\n" or stream.readline() != token + b"\n":
+                raise ValueError("invalid steering session")
+            numbers = stream.readline().split()
+            if len(numbers) != 2 or any(not n.isdigit() for n in numbers):
+                raise ValueError("invalid steering header")
+            queued_request, length = map(int, numbers)
+            if not 0 < queued_request <= 10000 or not 0 < length <= 4096:
+                raise ValueError("steering header exceeds limits")
+            queued = stream.read(length)
+            if len(queued) != length or b"\0" in queued or stream.read(1):
+                raise ValueError("invalid steering prompt")
+            if queued_request != request:
+                if queued_request + 1 != request or queued != prompt:
+                    raise ValueError("steering queue does not belong to checkpoint")
+                queued = b""  # Already committed; C loader removes this stale sidecar.
     return dict(token=token.decode("ascii"), request=request, offset=len(answer),
                 prompt=prompt, answer=bytes(answer), done=done,
+                cancelled=done == 2, queued_prompt=queued,
                 file_lines=file_lines, torn_bytes=torn)
 
 
@@ -75,7 +99,8 @@ def main():
     else:
         print(f'session={state["token"]}')
         print(f'request={state["request"]} offset={state["offset"]} done={int(state["done"])} '
-              f'file_lines={state["file_lines"]} torn_bytes={state["torn_bytes"]}')
+              f'cancelled={int(state["cancelled"])} file_lines={state["file_lines"]} '
+              f'torn_bytes={state["torn_bytes"]} queued_bytes={len(state["queued_prompt"])}')
         print(f'prompt={state["prompt"].decode("utf-8", errors="backslashreplace")}')
 
 

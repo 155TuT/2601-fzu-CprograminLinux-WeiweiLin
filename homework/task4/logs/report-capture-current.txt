@@ -1,0 +1,35 @@
+$ python3 tests/verify_tui.py --capture
+PASS U01: STATUS JSON stays outside chat; successive updates replace one visible metadata line
+PASS U02: upstream completed STATUS remains finishing until the C protocol emits END
+PASS U03: light theme renders THINK gray and formal answer black; END leaves one per-turn summary
+PASS U04: two turns retain distinct prompts, answers and exactly one final summary each
+PASS U05: /thinking changes only transcript presentation and restores the cached reasoning
+PASS U06: one live PTY reflows at 140x38, 96x28, 60x18 and 40x10 while preserving its editable Unicode draft
+PASS U07: PgUp/PgDn scroll transcript history while preserving the draft and sending no request
+PASS U08: /theme dark is local; cached transcript and draft use the dark foreground/background palette
+PASS U09: after all resizes and controls, Enter submits the exact original UTF-8 draft; exit restores termios
+PASS U10: 33ms UI ticks do not refresh the 1500ms network deadline; a silent peer leaves a pending checkpoint and an editable error screen
+PASS U11: active Ctrl+Z/foreground resume beyond the idle limit drains queued HEARTBEAT, DELTA and END without a false timeout
+PASS U12: a readable but incomplete frame retains its bounded transfer deadline and reports a frame timeout distinctly from network silence
+All 12 TUI screen checks passed.
+[exit status: 0]
+
+$ python3 scripts/capture_conversation_ui.py
+{"source": "Deterministic UI fixture; not Qwen generation or model performance.", "captured_at": "2026-10-14T13:11:23.962683+08:00", "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client", "client_size": 395304, "client_mtime_ns": 1791954644744952266, "method": "Actual C client on an owned all-stdio PTY; Ctrl+L full redraw archived verbatim. Only the replay xterm will be screenshot.", "columns": 96, "rows": 28, "client_pid": 420081, "client_alive": true, "ansi_bytes": 2348, "description": "Two saved turns restored after switching back; /sessions lists both conversations; an unsent /switch command remains editable.", "draft": "question>  /switch session-pwM9Lu"}
+{"source": "Deterministic UI fixture; not Qwen generation or model performance.", "captured_at": "2026-10-14T13:11:24.707595+08:00", "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client", "client_size": 395304, "client_mtime_ns": 1791954644744952266, "method": "Actual C client on an owned all-stdio PTY; Ctrl+L full redraw archived verbatim. Only the replay xterm will be screenshot.", "columns": 96, "rows": 28, "client_pid": 420116, "client_alive": true, "ansi_bytes": 2114, "description": "A thinking turn is cancelled; the durable correction becomes a new completed turn; the next question remains editable.", "draft": "question>  下一问：读取失败时怎样报告错误？"}
+{"source": "Deterministic UI fixture; not Qwen generation or model performance.", "captured_at": "2026-10-14T13:11:25.480032+08:00", "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client", "client_size": 395304, "client_mtime_ns": 1791954644744952266, "method": "Actual C client on an owned all-stdio PTY; Ctrl+L full redraw archived verbatim. Only the replay xterm will be screenshot.", "columns": 60, "rows": 18, "client_pid": 420125, "client_alive": true, "ansi_bytes": 1519, "description": "Injected inference error stays inside the conversation; checkpoint remains pending and a Chinese correction is editable in the same living client process.", "draft": "question>  请改用两句话回答（未发送）"}
+[exit status: 0]
+
+$ python3 scripts/model/tui_smoke.py --capture
+{"source": "Actual local Qwen generation through the current C client.", "captured_at": "2026-10-14T13:11:43.034160+08:00", "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client", "client_size": 395304, "client_mtime_ns": 1791954644744952266, "method": "Actual C client on an owned all-stdio PTY; Ctrl+L full redraw archived verbatim. Only the replay xterm will be screenshot.", "columns": 96, "rows": 28, "client_pid": 420165, "client_alive": true, "ansi_bytes": 2035, "description": "Two actual Qwen turns recall SPRUCE; thinking is hidden locally and the next question remains unsent.", "draft": "question>  下一问：请解释 fork 和 exec 的区别。"}
+$ python3 scripts/model/tui_smoke.py
+Actual all-stdio PTY; existing local Qwen model; isolated temporary sessions.
+Healthy model endpoint: http://127.0.0.1:37846
+turn=1 done=1 answer='\n\n收到' budget=4096 context=16384
+turn=2 done=1 answer='\n\nSPRUCE' budget=4096 context=16384
+PASS: actual Qwen completed two turns with 4096 output budget and 16k context.
+PASS: both turns archived; /new and /switch restored the selected conversation.
+PASS: clean TUI exit restored the original terminal settings.
+Elapsed: 19.013s
+[exit status: 0]
+

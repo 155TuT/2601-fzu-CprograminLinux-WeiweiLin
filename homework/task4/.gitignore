@@ -1,5 +1,6 @@
 /build/
 /bin/
+/.runtime/
 /state/*
 !/state/.gitkeep
 __pycache__/

@@ -1,0 +1,16 @@
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/server/main.c -o build/server/main.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/storage/session.c -o build/storage/session.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/backend/model.c -o build/backend/model.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/backend/process.c -o build/backend/process.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/net/protocol.c -o build/net/protocol.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/net/discovery.c -o build/net/discovery.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/storage/files.c -o build/storage/files.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/client/main.c -o build/client/main.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/client/terminal.c -o build/client/terminal.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/client/view.c -o build/client/view.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/client/screen.c -o build/client/screen.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/client/status.c -o build/client/status.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/client/state.c -o build/client/state.o
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g -MMD -MP -c src/storage/checkpoint.c -o build/storage/checkpoint.o
+gcc  -o bin/stream_server build/server/main.o build/storage/session.o build/backend/model.o build/backend/process.o build/net/protocol.o build/net/discovery.o build/storage/files.o
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/view.o build/client/screen.o build/client/status.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/net/discovery.o build/storage/files.o

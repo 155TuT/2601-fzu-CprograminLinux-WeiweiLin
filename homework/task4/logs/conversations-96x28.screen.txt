@@ -1,0 +1,28 @@
+ TASK4  /  local
+ session aaaaaaaaaaaa  /  context 0 / 0  /  live
+ YOU  /  1
+  文件读取失败时应该怎么办？
+
+ local
+  [UI fixture] 先检查 fopen 返回值，再读取文件。
+ completed  /  0 tok  /  0.0 tok/s  /  0.0s  /  ctx 0/0  /  saved conversation
+
+ YOU  /  2  (resumed)
+  读取结束后需要释放什么？
+
+ local
+  [UI fixture] 使用 fclose 关闭文件，保留错误检查。
+ completed  /  0 tok  /  0.0 tok/s  /  0.0s  /  ctx 0/0  /  restored from checkpoint
+
+ Checkpoint: /tmp/task4-ui-conversations-vcwdmmsh/clients/session-hb4cCH/checkpoint.ckpt
+ /help  /sessions  /new
+ Conversations in /tmp/task4-ui-conversations-vcwdmmsh/clients (current conversation may be mar
+ ked active):
+ session-hb4cCH  [active]  /switch session-hb4cCH
+ session-pwM9Lu  [saved]  /switch session-pwM9Lu
+ /new | /switch ID | /delete ID (local recycle bin)
+
+
+-----------------------------------------------------------------------------------------------
+ completed  |  Enter send  Ctrl+C clear  Wheel/PgUp scroll  /help
+question>  /switch session-pwM9Lu

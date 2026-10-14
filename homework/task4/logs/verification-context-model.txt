@@ -1,0 +1,7 @@
+PASS M01: split thinking tags, UTF-8 final stream, completed-only multi-turn history, session isolation
+PASS M02: cancel during thinking, durable cancellation replay, slow-first-token heartbeat, other client continues
+PASS M03: disconnect resumes frozen raw prefix without duplicated answer; immutable per-turn config
+PASS M04: token-limit interruption is resumable and never falsely marked complete
+PASS M05: real C client receives non-thinking model final output only
+PASS M06: non-loopback model endpoint is rejected before any remote request
+All 6 model integration checks passed.

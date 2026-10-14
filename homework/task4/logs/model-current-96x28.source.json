@@ -1,0 +1,15 @@
+{
+  "source": "Actual local Qwen generation through the current C client.",
+  "captured_at": "2026-10-14T13:11:43.034160+08:00",
+  "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client",
+  "client_size": 395304,
+  "client_mtime_ns": 1791954644744952266,
+  "method": "Actual C client on an owned all-stdio PTY; Ctrl+L full redraw archived verbatim. Only the replay xterm will be screenshot.",
+  "columns": 96,
+  "rows": 28,
+  "client_pid": 420165,
+  "client_alive": true,
+  "ansi_bytes": 2035,
+  "description": "Two actual Qwen turns recall SPRUCE; thinking is hidden locally and the next question remains unsent.",
+  "draft": "question>  下一问：请解释 fork 和 exec 的区别。"
+}

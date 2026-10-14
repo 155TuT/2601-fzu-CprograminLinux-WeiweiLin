@@ -1,0 +1,15 @@
+$ make -n -W include/task4/terminal.h
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/main.c -o build/client/main.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/terminal.c -o build/client/terminal.o
+mkdir -p bin
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/storage/files.o
+
+$ make -n -W include/task4/client_state.h
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/main.c -o build/client/main.o
+mkdir -p build/client
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -std=c11 -Wall -Wextra -Wpedantic -O2 -g -MMD -MP -c src/client/state.c -o build/client/state.o
+mkdir -p bin
+gcc  -o bin/stream_client build/client/main.o build/client/terminal.o build/client/state.o build/storage/checkpoint.o build/net/protocol.o build/storage/files.o

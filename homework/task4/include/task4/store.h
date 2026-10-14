@@ -23,7 +23,9 @@ int t4_event(struct t4_session *s, const char *event, uint32_t request, uint32_t
 int t4_turn_open(struct t4_session *s, uint32_t request,
                  const unsigned char *prompt, uint32_t length,
                  char directory[PATH_MAX], uint32_t *cached, int *done,
-                 const char *corpus, const struct t4_backend *backend);
+                 const char *model_config, const struct t4_backend *backend);
 int t4_turn_done(const char *directory);
+/* A cancelled turn is terminal but never included in later model history. */
+int t4_turn_cancel(const char *directory);
 
 #endif

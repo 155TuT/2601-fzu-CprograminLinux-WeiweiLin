@@ -1,0 +1,15 @@
+Command: python3 tests/verify_tui.py --capture
+Fixture: deterministic layout data; real C client, one all-stdio PTY, owned TCP peer.
+PASS U01: STATUS JSON stays outside chat; successive updates replace one visible metadata line
+PASS U02: upstream completed STATUS remains finishing until the C protocol emits END
+PASS U03: light theme renders THINK gray and formal answer black; END leaves one per-turn summary
+PASS U04: two turns retain distinct prompts, answers and exactly one final summary each
+PASS U05: /thinking changes only transcript presentation and restores the cached reasoning
+PASS U06: one live PTY reflows at 140x38, 96x28, 60x18 and 40x10 while preserving its editable Unicode draft
+PASS U07: PgUp/PgDn scroll transcript history while preserving the draft and sending no request
+PASS U08: /theme dark is local; cached transcript and draft use the dark foreground/background palette
+PASS U09: after all resizes and controls, Enter submits the exact original UTF-8 draft; exit restores termios
+PASS U10: 33ms UI ticks do not refresh the 1500ms network deadline; a silent peer leaves a pending checkpoint and an editable error screen
+PASS U11: active Ctrl+Z/foreground resume beyond the idle limit drains queued HEARTBEAT, DELTA and END without a false timeout
+PASS U12: a readable but incomplete frame retains its bounded transfer deadline and reports a frame timeout distinctly from network silence
+All 12 TUI screen checks passed.

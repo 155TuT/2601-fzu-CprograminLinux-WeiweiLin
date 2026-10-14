@@ -1,0 +1,64 @@
+{
+  "captured_at": "2026-10-14T13:11:22.252140+08:00",
+  "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client",
+  "client_size": 395304,
+  "client_mtime_ns": 1791954644744952266,
+  "method": "One actual all-stdio C-client PTY, controlled TCP fixture, successive TIOCSWINSZ; screenshots replay each actual redraw in an owned xterm.",
+  "fixture": "Deterministic layout test data, not Qwen model output.",
+  "checks": [
+    "STATUS JSON stays outside chat; successive updates replace one visible metadata line",
+    "upstream completed STATUS remains finishing until the C protocol emits END",
+    "light theme renders THINK gray and formal answer black; END leaves one per-turn summary",
+    "two turns retain distinct prompts, answers and exactly one final summary each",
+    "/thinking changes only transcript presentation and restores the cached reasoning",
+    "one live PTY reflows at 140x38, 96x28, 60x18 and 40x10 while preserving its editable Unicode draft",
+    "PgUp/PgDn scroll transcript history while preserving the draft and sending no request",
+    "/theme dark is local; cached transcript and draft use the dark foreground/background palette",
+    "after all resizes and controls, Enter submits the exact original UTF-8 draft; exit restores termios",
+    "33ms UI ticks do not refresh the 1500ms network deadline; a silent peer leaves a pending checkpoint and an editable error screen",
+    "active Ctrl+Z/foreground resume beyond the idle limit drains queued HEARTBEAT, DELTA and END without a false timeout",
+    "a readable but incomplete frame retains its bounded transfer deadline and reports a frame timeout distinctly from network silence"
+  ],
+  "captures": [
+    {
+      "index": 14,
+      "columns": 140,
+      "rows": 38,
+      "theme": "light",
+      "ansi": "logs/tui-light-140x38.ansi",
+      "screenshot": "screenshots/14-tui-light-140x38.png"
+    },
+    {
+      "index": 15,
+      "columns": 96,
+      "rows": 28,
+      "theme": "light",
+      "ansi": "logs/tui-light-96x28.ansi",
+      "screenshot": "screenshots/15-tui-light-96x28.png"
+    },
+    {
+      "index": 16,
+      "columns": 60,
+      "rows": 18,
+      "theme": "light",
+      "ansi": "logs/tui-light-60x18.ansi",
+      "screenshot": "screenshots/16-tui-light-60x18.png"
+    },
+    {
+      "index": 17,
+      "columns": 40,
+      "rows": 10,
+      "theme": "light",
+      "ansi": "logs/tui-light-40x10.ansi",
+      "screenshot": "screenshots/17-tui-light-40x10.png"
+    },
+    {
+      "index": 18,
+      "columns": 96,
+      "rows": 28,
+      "theme": "dark",
+      "ansi": "logs/tui-dark-96x28.ansi",
+      "screenshot": "screenshots/18-tui-dark-96x28.png"
+    }
+  ]
+}

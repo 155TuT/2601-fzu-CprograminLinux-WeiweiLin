@@ -1,0 +1,18 @@
+test_completed_history_excludes_cancelled_and_future (__main__.AdapterChecks.test_completed_history_excludes_cancelled_and_future) ... ok
+test_cumulative_native_count_and_invalid_terminal_count (__main__.AdapterChecks.test_cumulative_native_count_and_invalid_terminal_count) ... ok
+test_deployed_config_metadata (__main__.AdapterChecks.test_deployed_config_metadata) ... ok
+test_endpoint_restrictions (__main__.AdapterChecks.test_endpoint_restrictions) ... ok
+test_frame_chunk_utf8_offsets_and_partial_writes (__main__.AdapterChecks.test_frame_chunk_utf8_offsets_and_partial_writes) ... ok
+test_journal_all_torn_positions (__main__.AdapterChecks.test_journal_all_torn_positions) ... ok
+test_limit_metrics_use_native_total_without_marking_done (__main__.AdapterChecks.test_limit_metrics_use_native_total_without_marking_done) ... ok
+test_marker_every_split (__main__.AdapterChecks.test_marker_every_split) ... ok
+test_prefix_mismatch_and_config_change_fail (__main__.AdapterChecks.test_prefix_mismatch_and_config_change_fail) ... ok
+test_prompt_progress_tokens_do_not_count_as_generation (__main__.AdapterChecks.test_prompt_progress_tokens_do_not_count_as_generation) ... ok
+test_raw_ahead_of_c_response_replays_without_http (__main__.AdapterChecks.test_raw_ahead_of_c_response_replays_without_http) ... ok
+test_resume_uses_frozen_raw_prefix (__main__.AdapterChecks.test_resume_uses_frozen_raw_prefix) ... ok
+test_template_prefill_and_unfinished_thinking (__main__.AdapterChecks.test_template_prefill_and_unfinished_thinking) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.259s
+
+OK

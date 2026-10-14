@@ -1,0 +1,14 @@
+{
+  "endpoint": "auto",
+  "model": "Qwen3.5-4B",
+  "model_file": ".runtime/models/Qwen3.5-4B-Q5_K_M.gguf",
+  "thinking": true,
+  "max_tokens": 4096,
+  "context_tokens": 16384,
+  "slots": 2,
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 20,
+  "min_p": 0.0,
+  "presence_penalty": 1.5
+}

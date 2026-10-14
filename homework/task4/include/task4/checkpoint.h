@@ -4,15 +4,21 @@
 
 struct t4_checkpoint {
     char session[33];
+    /* done: 0 pending, 1 completed, 2 explicitly cancelled. */
     uint32_t request, offset, prompt_length, done;
     uint32_t file_lines;
     unsigned char prompt[T4_MAX_PROMPT + 1];
     unsigned char *answer;
     uint32_t saved_request, saved_offset, saved_done;
     int journal_loaded;
+    /* A durable steering sidecar belongs to queued_request in this session. */
+    uint32_t queued_request, queued_length;
+    unsigned char queued_prompt[T4_MAX_PROMPT + 1];
 };
 int t4_checkpoint_load(const char *path, struct t4_checkpoint *c);
 int t4_checkpoint_save(const char *path, struct t4_checkpoint *c);
 int t4_checkpoint_lock(const char *path);
+int t4_checkpoint_queue(const char *path, struct t4_checkpoint *c,
+                        const unsigned char *prompt, uint32_t length);
 
 #endif

@@ -1,0 +1,7 @@
+PASS D01: numeric latest turn, terminal-marker precedence, offline/error snapshot and native token/context/rate metrics; state unchanged
+PASS D02: real exclusive flock owner maps to active, stopped worker to paused, release to offline; observer preserves held lock
+PASS D03: symlink roots/sessions/files, FIFO, oversize/torn JSON/logs, nonfinite metrics and escape text safely handled; private bodies omitted unless preview enabled
+PASS D04: --once/--json, opt-in preview, missing/non-TTY errors and cell-safe layouts at 18/60/80/140 columns
+PASS D05: real C worker idle/generating progress and disconnect remain distinct from completion; random-port/temp-state only
+PASS D06: all-stdio curses PTY selects/preserves selection across timed refresh, resizes 60/80/tiny/140 columns, preserves UTF-8 and restores termios on q
+All 6 dashboard checks passed (1.6s).

@@ -1,0 +1,37 @@
+会话管理、错误留屏与纠偏截图证据
+
+采集日期：2026-10-14；客户端版本与报告截图对应见 report-screenshots-current.json。
+
+采集命令：python3 scripts/capture_conversation_ui.py
+该脚本启动真实 bin/stream_client，stdin/stdout/stderr 接入同一自有 PTY。
+所有 TCP 对端、session-dir、checkpoint 均位于测试自有临时目录；不使用用户服务或模型。
+界面内容明确标记 [UI fixture]，不是 Qwen 输出。0 tok / ctx 0/0 是夹具未发送模型统计，不能作为推理性能数据。
+
+21-conversations-96x28.png：完成两个轮次，创建第二个会话，再切回第一个；历史从客户端持久记录恢复。
+随后运行 /sessions，显示两个独立会话及 /new、/switch、/delete 操作；编辑框保留未提交的 /switch 命令。
+22-conversation-error-60x18.png：注入 ERROR 前先发送正文前缀，验证 checkpoint 仍 pending 且客户端进程继续存活。
+错误显示在对话内，/retry、/stop、/new、/switch 提示与未提交的中文纠偏草稿均可见。
+
+24-controls-96x28.png：思考期间发送 /steer，收到取消确认后提交包含原问题和修改要求的新轮，完成后保留草稿。
+
+三张均先使用 TIOCSWINSZ 调整行列，再 Ctrl+L 强制完整真实重绘并排空输出。
+逐字节存档：logs/conversations-96x28.ansi、logs/conversation-error-60x18.ansi、logs/controls-96x28.ansi。
+.screen.txt 仅用于核对可见内容；截图没有使用它重新排版。
+.source.json 记录采集时客户端 PID、存活断言、尺寸与说明。
+.capture.json 记录实际 xterm TIOCGWINSZ 与图片像素。
+
+重放使用 scripts/capture_terminal.py，仅捕获脚本自己创建的 X11 父窗口及嵌入的 xterm。
+未截取整个桌面或其他窗口；这是真实 ANSI 在 xterm 中的重放截图，不是原生 VS Code 截图。
+
+重放命令参数（分别用于三张）：
+PYTHONPATH=/tmp/task4-tools FONTCONFIG_FILE=/tmp/task4-terminal/fonts.conf python3 scripts/capture_terminal.py --log logs/conversations-96x28.ansi --output screenshots/21-conversations-96x28.png --metadata logs/conversations-96x28.capture.json --columns 96 --rows 28 --font-size 12 --font-double 'Microsoft YaHei' --settle-seconds 2 --xterm /tmp/task4-terminal/root/usr/bin/xterm --library-path /tmp/task4-terminal/root/usr/lib/x86_64-linux-gnu --app-defaults /tmp/task4-terminal/root/etc/X11/app-defaults
+第二张将 log/output/metadata 名称改为 conversation-error-60x18 / 22-conversation-error-60x18，并取 --columns 60 --rows 18。
+第三张使用 controls-96x28 / 24-controls-96x28，取 --columns 96 --rows 28。
+
+实际测量：96x28 = 970x542 像素；60x18 = 610x352 像素。
+三张均通过 view_image 检查，中文、正文/元数据色彩、列表及编辑框清晰可见。
+
+真实模型截图 23-model-current-96x28.png 由 python3 scripts/model/tui_smoke.py --capture 采集。
+它使用已启动的本地 Qwen 服务及测试自有的课程服务端、客户端与临时状态，完成两轮 SPRUCE 回忆后隐藏思考并保留草稿。
+对应日志为 model-tui-4096.txt，实际重绘与来源为 model-current-96x28.ansi 和 .source.json；
+同样通过自有 xterm 原样重放、按 96x28 捕获，测量为 970x542，已逐图检查。

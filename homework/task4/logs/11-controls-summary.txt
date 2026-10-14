@@ -1,0 +1,21 @@
+$ python3 scripts/model/controls.py
+(excerpt; complete commands and retained state: logs/model-controls.txt)
+
+Recorded: 2026-10-14T08:26:20.954939+08:00
+Real local model=Qwen3.5-4B; endpoint=http://127.0.0.1:8081; default thinking=true.
+STEER/CANCEL -> CANCELLED acknowledgement: 8.363 ms
+PASS: turn 1 has cancelled, lacks done; turn 2 contains original question and correction.
+PASS: turn 2 structured messages contain only the corrected user prompt; cancelled partial answer/thoughts are excluded.
+Corrected final answer='\n\nLINUX'
+Corrected completion: 3.669s; tokens/s=81.813; quota_resume=False
+STOP -> CANCELLED acknowledgement: 5.025 ms
+PASS: explicit STOP marks turn 3 cancelled; session remains usable.
+recovery demo uses isolated thinking=false config, while default config remains thinking=true.
+Interrupted exit=143; pending durable final prefix=8 bytes; raw journal=340 bytes.
+Recovered final answer=140 bytes; suffix=132 bytes; elapsed=1.751s.
+Resumed inference prefilled raw_prefix_bytes=8; new_tokens=133; tokens/s=83.161.
+PASS: completed answer preserves the exact durable prefix, same request/token and same model/template snapshot.
+PASS: raw journal retains the exact old generation prefix; resumed C client completed turn 1 without a repeated question.
+PASS: real tty STEER, STOP and final-answer disconnect recovery completed through C server/client and local model.
+Total elapsed: 6.275s
+[exit status: 0]

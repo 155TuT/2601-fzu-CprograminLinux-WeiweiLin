@@ -1,0 +1,47 @@
+TUI 布局验证与截图方法
+
+采集日期：2026-10-14；全部使用当前同一编译版本，见 report-screenshots-current.json。
+
+运行：python3 tests/verify_tui.py --capture
+该脚本启动真实 bin/stream_client，stdin/stdout/stderr 全部连接同一个新建 PTY；
+仅连接测试自己的 127.0.0.1 TCP 对端，checkpoint 在临时目录内。
+问题、思考、正文和 token 统计是确定性的布局夹具，并非 Qwen 的真实生成或实测速度。
+模型标题也明确标为 layout fixture。用户正在运行的服务、终端和会话均未操作。
+
+同一进程先显示两个会话内轮次和未发送的中文/emoji 草稿，再依次使用
+TIOCSWINSZ 调整为 140x38、96x28、60x18、40x10，最后切换深色并回到 96x28。
+140x38 相同尺寸的第一次存档使用 Ctrl+L 强制完整重绘。
+每次实际重绘原始字节存入 logs/tui-{light|dark}-COLSxROWS.ansi；
+对应 .screen.txt 是标准库 VT cell-grid 解析后的最终可见字符，.capture.json
+记录实际 xterm 的 TIOCGWINSZ 和图片像素尺寸。完整原始输出见 tui-full.ansi。
+草稿在所有操作后由 Enter 提交，与最初 UTF-8 字节逐字节比较相同。
+
+截图 14-18 通过 scripts/capture_terminal.py 原样重放各实际重绘片段。
+脚本创建自己拥有的 X11 父窗口和嵌入 xterm；测量字体单元尺寸后，在必要时
+重建自己的窗口，确认实际终端行列数完全一致，再捕获该窗口。
+截图是实际客户端重绘在 xterm 的再显示；不是原生 VS Code GUI 捕获，
+也不是把扁平文本日志排版成伪终端图。没有读取其他窗口或整个桌面的像素。
+
+截图依赖仅用于证据采集，程序/测试不依赖它们：xterm、Pillow、python-xlib。
+本次 xterm 与库仅解包在 /tmp/task4-terminal，Python 包在 /tmp/task4-tools；
+fontconfig 临时配置 /tmp/task4-terminal/fonts.conf 读取只读 Windows 字体目录，
+没有安装系统软件/字体。中文使用 Microsoft YaHei；当前 xterm 对 🙂 仍显示
+缺字方框（右侧另有编辑光标）。原始日志与精确提交检查保留真实 🙂 UTF-8，
+字体显示能力和客户端保存/编辑正确性分别由截图与测试说明。
+
+本次实际捕获命令示例：
+PYTHONPATH=/tmp/task4-tools FONTCONFIG_FILE=/tmp/task4-terminal/fonts.conf python3 scripts/capture_terminal.py --log logs/tui-light-140x38.ansi --output screenshots/14-tui-light-140x38.png --metadata logs/tui-light-140x38.capture.json --columns 140 --rows 38 --font-size 12 --font-double 'Microsoft YaHei' --settle-seconds 2 --xterm /tmp/task4-terminal/root/usr/bin/xterm --library-path /tmp/task4-terminal/root/usr/lib/x86_64-linux-gnu --app-defaults /tmp/task4-terminal/root/etc/X11/app-defaults
+其余四张同命令分别取 light/96x28、light/60x18、light/40x10、dark/96x28，
+字号为 12，--font-double 'Microsoft YaHei'，settle 2 秒。
+若 xterm/Pillow/python-xlib 已在用户环境可用，可省略临时包相关参数；
+--font-double 应选择该环境中存在的中文字体。
+
+截图实测：
+14-tui-light-140x38.png  140x38  1410x732
+15-tui-light-96x28.png    96x28  970x542
+16-tui-light-60x18.png    60x18  610x352
+17-tui-light-40x10.png    40x10  410x200
+18-tui-dark-96x28.png     96x28  970x542
+全部五图逐张通过 view_image 人工检查；中文可读，重流/统计/输入行符合对应尺寸。
+浅色背景 RGB(248,249,251)，正式正文 RGB(0,0,0)，思考/元数据 RGB(102,109,121)。
+深色背景 RGB(22,25,31)，正式正文 RGB(227,230,237)，元数据 RGB(151,159,174)。

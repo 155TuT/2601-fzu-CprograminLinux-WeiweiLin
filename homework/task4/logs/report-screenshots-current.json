@@ -1,0 +1,161 @@
+{
+  "checked_at": "2026-10-14T13:16:54.226253+08:00",
+  "client_binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client",
+  "client_size": 395304,
+  "client_mtime_ns": 1791954644744952266,
+  "source_commands": [
+    "python3 tests/verify_tui.py --capture",
+    "python3 scripts/capture_conversation_ui.py",
+    "python3 scripts/model/tui_smoke.py --capture"
+  ],
+  "source_log": "logs/report-capture-current.txt",
+  "image_capture_log": "logs/report-image-capture-current.txt",
+  "method": "Verbatim current C-client PTY redraws replayed in a same-size owned xterm; capture only the owned window.",
+  "inspection": "All nine PNGs inspected for current controls, text layout and Chinese display; all six report images use this client build. The layout-fixture emoji is a font fallback box; UTF-8 submission is checked separately.",
+  "screenshots": [
+    {
+      "screenshot": "screenshots/14-tui-light-140x38.png",
+      "used_in_report": true,
+      "content": "deterministic UI fixture",
+      "source": "logs/tui-layout-manifest.json",
+      "ansi": "logs/tui-light-140x38.ansi",
+      "capture": "logs/tui-light-140x38.capture.json",
+      "captured_at": "2026-10-14T13:11:22.252140+08:00",
+      "columns": 140,
+      "rows": 38,
+      "pixels": [
+        1410,
+        732
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/15-tui-light-96x28.png",
+      "used_in_report": false,
+      "content": "deterministic UI fixture",
+      "source": "logs/tui-layout-manifest.json",
+      "ansi": "logs/tui-light-96x28.ansi",
+      "capture": "logs/tui-light-96x28.capture.json",
+      "captured_at": "2026-10-14T13:11:22.252140+08:00",
+      "columns": 96,
+      "rows": 28,
+      "pixels": [
+        970,
+        542
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/16-tui-light-60x18.png",
+      "used_in_report": true,
+      "content": "deterministic UI fixture",
+      "source": "logs/tui-layout-manifest.json",
+      "ansi": "logs/tui-light-60x18.ansi",
+      "capture": "logs/tui-light-60x18.capture.json",
+      "captured_at": "2026-10-14T13:11:22.252140+08:00",
+      "columns": 60,
+      "rows": 18,
+      "pixels": [
+        610,
+        352
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/17-tui-light-40x10.png",
+      "used_in_report": false,
+      "content": "deterministic UI fixture",
+      "source": "logs/tui-layout-manifest.json",
+      "ansi": "logs/tui-light-40x10.ansi",
+      "capture": "logs/tui-light-40x10.capture.json",
+      "captured_at": "2026-10-14T13:11:22.252140+08:00",
+      "columns": 40,
+      "rows": 10,
+      "pixels": [
+        410,
+        200
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/18-tui-dark-96x28.png",
+      "used_in_report": false,
+      "content": "deterministic UI fixture",
+      "source": "logs/tui-layout-manifest.json",
+      "ansi": "logs/tui-dark-96x28.ansi",
+      "capture": "logs/tui-dark-96x28.capture.json",
+      "captured_at": "2026-10-14T13:11:22.252140+08:00",
+      "columns": 96,
+      "rows": 28,
+      "pixels": [
+        970,
+        542
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/21-conversations-96x28.png",
+      "used_in_report": true,
+      "content": "deterministic UI fixture",
+      "source": "logs/conversations-96x28.source.json",
+      "ansi": "logs/conversations-96x28.ansi",
+      "capture": "logs/conversations-96x28.capture.json",
+      "captured_at": "2026-10-14T13:11:23.962683+08:00",
+      "columns": 96,
+      "rows": 28,
+      "pixels": [
+        970,
+        542
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/22-conversation-error-60x18.png",
+      "used_in_report": true,
+      "content": "deterministic UI fixture",
+      "source": "logs/conversation-error-60x18.source.json",
+      "ansi": "logs/conversation-error-60x18.ansi",
+      "capture": "logs/conversation-error-60x18.capture.json",
+      "captured_at": "2026-10-14T13:11:25.480032+08:00",
+      "columns": 60,
+      "rows": 18,
+      "pixels": [
+        610,
+        352
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/23-model-current-96x28.png",
+      "used_in_report": true,
+      "content": "actual local Qwen generation",
+      "source": "logs/model-current-96x28.source.json",
+      "ansi": "logs/model-current-96x28.ansi",
+      "capture": "logs/model-current-96x28.capture.json",
+      "captured_at": "2026-10-14T13:11:43.034160+08:00",
+      "columns": 96,
+      "rows": 28,
+      "pixels": [
+        970,
+        542
+      ],
+      "visually_inspected": true
+    },
+    {
+      "screenshot": "screenshots/24-controls-96x28.png",
+      "used_in_report": true,
+      "content": "deterministic UI fixture",
+      "source": "logs/controls-96x28.source.json",
+      "ansi": "logs/controls-96x28.ansi",
+      "capture": "logs/controls-96x28.capture.json",
+      "captured_at": "2026-10-14T13:11:24.707595+08:00",
+      "columns": 96,
+      "rows": 28,
+      "pixels": [
+        970,
+        542
+      ],
+      "visually_inspected": true
+    }
+  ]
+}

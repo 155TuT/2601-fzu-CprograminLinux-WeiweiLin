@@ -1,0 +1,28 @@
+ TASK4  /  Qwen3.5-4B
+ session 9bf3e70b4737  /  context 37 / 16384  /  live
+ Checkpoint: /tmp/task4-model-tui-4ckgj3ds/clients/session-dQpEKp/checkpoint.ckpt
+ /help  /sessions  /new
+ YOU  /  1
+  请记住代号 SPRUCE，只回答收到。
+
+ Qwen3.5-4B
+ [thinking hidden  /  /thinking to show]
+  收到
+ completed  /  429 tok  /  70.1 tok/s  /  6.6s  /  ctx 19/16384
+
+ YOU  /  2
+  请只回答刚才的代号。
+
+ Qwen3.5-4B
+ [thinking hidden  /  /thinking to show]
+  SPRUCE
+ completed  /  799 tok  /  69.3 tok/s  /  11.6s  /  ctx 37/16384
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------
+ completed  |  Enter send  Ctrl+C clear  Wheel/PgUp scroll  /help
+question>  下一问：请解释 fork 和 exec 的区别。

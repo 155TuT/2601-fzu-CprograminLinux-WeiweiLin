@@ -1,0 +1,17 @@
+{
+  "source": "actual current state/model-server; no fixture; --preview absent",
+  "method": "all-stdio owned PTY, exact ANSI replay in separately owned xterm",
+  "columns": 140,
+  "rows": 38,
+  "command": [
+    "/usr/bin/python3",
+    "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/scripts/server/dashboard.py",
+    "--state",
+    "state/model-server"
+  ],
+  "cwd": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4",
+  "captured_at_utc": "2026-10-14T01:41:11Z",
+  "termios_restored": true,
+  "frame_ansi_bytes": 1776,
+  "full_ansi_bytes": 1844
+}

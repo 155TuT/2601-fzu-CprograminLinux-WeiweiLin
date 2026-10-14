@@ -20,6 +20,19 @@ int t4_checkpoint_lock(const char *path)
     int fd = open(lock, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0600);
     if (fd < 0) return -1;
     if (flock(fd, LOCK_EX | LOCK_NB) < 0) { int saved = errno; close(fd); errno = saved; return -1; }
+    /* Only the lock owner may update this informational PID. A paused/live
+     * owner's lock fails above and is never changed or unlinked here. */
+    struct stat metadata;
+    if (fstat(fd, &metadata) < 0) { int saved = errno; close(fd); errno = saved; return -1; }
+    if (!S_ISREG(metadata.st_mode) || metadata.st_nlink != 1) {
+        close(fd); errno = EINVAL; return -1;
+    }
+    char owner[64];
+    n = snprintf(owner, sizeof(owner), "pid=%ld\n", (long)getpid());
+    if (n < 0 || (size_t)n >= sizeof(owner) || lseek(fd, 0, SEEK_SET) < 0 ||
+        t4_write_all(fd, owner, (size_t)n) < 0 || ftruncate(fd, n) < 0 || fsync(fd) < 0) {
+        int saved = errno; close(fd); errno = saved; return -1;
+    }
     return fd;
 }
 
@@ -43,10 +56,109 @@ static int record_write(int fd, uint32_t type, uint32_t offset, const void *body
     return t4_write_all(fd, record, sizeof(header) + length);
 }
 
+static int steer_path(char target[PATH_MAX], const char *path)
+{
+    int n = snprintf(target, PATH_MAX, "%s.steer", path);
+    if (n < 0 || n >= PATH_MAX) { errno = ENAMETOOLONG; return -1; }
+    return 0;
+}
+
+static int parent_path(char parent[PATH_MAX], const char *path)
+{
+    if (strlen(path) >= PATH_MAX) { errno = ENAMETOOLONG; return -1; }
+    strcpy(parent, path);
+    char *slash = strrchr(parent, '/');
+    if (!slash) strcpy(parent, ".");
+    else if (slash == parent) slash[1] = 0;
+    else *slash = 0;
+    return 0;
+}
+
+/* The main checkpoint lock also covers this sidecar. A queued correction is
+ * durable before CANCEL is sent, and disappears only after the next turn's
+ * checkpoint has atomically replaced the previous turn. */
+static int steer_remove(const char *path, struct t4_checkpoint *c)
+{
+    char target[PATH_MAX], parent[PATH_MAX];
+    if (steer_path(target, path) < 0 || parent_path(parent, path) < 0) return -1;
+    if (unlink(target) < 0 && errno != ENOENT) return -1;
+    if (t4_directory_sync(parent) < 0) return -1;
+    c->queued_request = c->queued_length = 0;
+    return 0;
+}
+
+static int steer_load(const char *path, struct t4_checkpoint *c)
+{
+    char target[PATH_MAX];
+    if (steer_path(target, path) < 0) return -1;
+    int fd = open(target, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0) return errno == ENOENT ? 0 : -1;
+    FILE *f = fdopen(fd, "r");
+    if (!f) { close(fd); return -1; }
+    char magic[32], token[64], numbers[128], extra;
+    int result = -1;
+    if (!fgets(magic, sizeof(magic), f) || strcmp(magic, "T4STEER1\n") ||
+        !fgets(token, sizeof(token), f) || strlen(token) != 33 || token[32] != '\n' ||
+        memcmp(token, c->session, 32) || !fgets(numbers, sizeof(numbers), f) ||
+        sscanf(numbers, "%u %u %c", &c->queued_request, &c->queued_length, &extra) != 2 ||
+        !c->queued_request || c->queued_request > 10000 || !c->queued_length || c->queued_length > T4_MAX_PROMPT ||
+        fread(c->queued_prompt, 1, c->queued_length, f) != c->queued_length ||
+        memchr(c->queued_prompt, 0, c->queued_length) || fgetc(f) != EOF || ferror(f)) {
+        errno = EINVAL;
+        goto cleanup;
+    }
+    c->queued_prompt[c->queued_length] = 0;
+    if (c->queued_request != c->request) {
+        /* Crash after replacing the checkpoint but before deleting the queue. */
+        if (c->queued_request + 1 != c->request || c->queued_length != c->prompt_length ||
+            memcmp(c->queued_prompt, c->prompt, c->prompt_length)) { errno = EINVAL; goto cleanup; }
+        result = steer_remove(path, c);
+    } else result = 0;
+cleanup:
+    {
+        int saved = errno;
+        fclose(f);
+        errno = saved;
+        return result;
+    }
+}
+
+int t4_checkpoint_queue(const char *path, struct t4_checkpoint *c,
+                        const unsigned char *prompt, uint32_t length)
+{
+    if (!c->request || !length || length > T4_MAX_PROMPT || memchr(prompt, 0, length) ||
+        c->queued_length) { errno = EINVAL; return -1; }
+    char target[PATH_MAX], temporary[PATH_MAX], parent[PATH_MAX], header[160];
+    if (steer_path(target, path) < 0 || parent_path(parent, path) < 0) return -1;
+    int n = snprintf(temporary, sizeof(temporary), "%s.tmp-XXXXXX", target);
+    if (n < 0 || n >= PATH_MAX) { errno = ENAMETOOLONG; return -1; }
+    int fd = mkstemp(temporary);
+    if (fd < 0) return -1;
+    int result = -1;
+    n = snprintf(header, sizeof(header), "T4STEER1\n%s\n%u %u\n", c->session, c->request, length);
+    if (n < 0 || (size_t)n >= sizeof(header) || t4_write_all(fd, header, (size_t)n) < 0 ||
+        t4_write_all(fd, prompt, length) < 0 || fsync(fd) < 0) goto cleanup;
+    if (close(fd) < 0) { fd = -1; goto cleanup; }
+    fd = -1;
+    if (rename(temporary, target) < 0 || t4_directory_sync(parent) < 0) goto cleanup;
+    c->queued_request = c->request; c->queued_length = length;
+    memcpy(c->queued_prompt, prompt, length); c->queued_prompt[length] = 0;
+    result = 0;
+cleanup:
+    {
+        int saved = errno;
+        if (fd >= 0) close(fd);
+        if (result < 0) unlink(temporary);
+        errno = saved;
+        return result;
+    }
+}
+
 int t4_checkpoint_load(const char *path, struct t4_checkpoint *c)
 {
     c->session[0] = 0;
     c->request = c->offset = c->prompt_length = c->file_lines = 0;
+    c->queued_request = c->queued_length = 0;
     c->done = 1; c->journal_loaded = 0;
     int fd = open(path, O_RDWR | O_NOFOLLOW | O_CLOEXEC);
     if (fd < 0) return errno == ENOENT ? 0 : -1;
@@ -87,7 +199,8 @@ int t4_checkpoint_load(const char *path, struct t4_checkpoint *c)
             if (!t4_character_valid(body, length) || length > T4_MAX_RESPONSE - c->offset) goto invalid;
             memcpy(c->answer + c->offset, body, length);
             c->offset += length;
-        } else if (type == T4_END && !length) c->done = 1;
+        } else if ((type == T4_END || type == T4_CANCELLED) && !length)
+            c->done = type == T4_END ? 1U : 2U;
         else goto invalid;
         last_good = ftello(f);
         if (last_good < 0) goto cleanup;
@@ -108,7 +221,7 @@ cleanup:
         int saved = errno;
         fclose(f);
         errno = saved;
-        return result;
+        return result == 0 ? steer_load(path, c) : result;
     }
 }
 
@@ -138,7 +251,8 @@ static int checkpoint_replace(const char *path, struct t4_checkpoint *c)
             record_write(fd, T4_DELTA, offset, c->answer + offset, width) < 0) goto cleanup;
         offset += width;
     }
-    if ((c->done && record_write(fd, T4_END, c->offset, NULL, 0) < 0) || fsync(fd) < 0) goto cleanup;
+    if ((c->done && record_write(fd, c->done == 2 ? T4_CANCELLED : T4_END,
+                                 c->offset, NULL, 0) < 0) || fsync(fd) < 0) goto cleanup;
     if (close(fd) < 0) { fd = -1; goto cleanup; }
     fd = -1;
     if (rename(temp, path) < 0 || t4_directory_sync(parent) < 0) goto cleanup;
@@ -166,7 +280,8 @@ int t4_checkpoint_save(const char *path, struct t4_checkpoint *c)
         uint32_t n = c->offset - c->saved_offset;
         if (n && (n > 4 || !t4_character_valid(c->answer + c->saved_offset, n) ||
                   record_write(fd, T4_DELTA, c->saved_offset, c->answer + c->saved_offset, n) < 0)) result = -1;
-        if (!result && c->done && record_write(fd, T4_END, c->offset, NULL, 0) < 0) result = -1;
+        if (!result && c->done && record_write(fd, c->done == 2 ? T4_CANCELLED : T4_END,
+                                             c->offset, NULL, 0) < 0) result = -1;
         if (!result) result = fsync(fd);
         int saved = errno;
         if (close(fd) < 0 && !result) { result = -1; saved = errno; }
@@ -175,6 +290,14 @@ int t4_checkpoint_save(const char *path, struct t4_checkpoint *c)
     if (!result) {
         c->journal_loaded = 1; c->saved_request = c->request;
         c->saved_offset = c->offset; c->saved_done = c->done;
+        if (c->queued_length && c->request == c->queued_request + 1)
+            result = steer_remove(path, c);
     }
+    /* A failed write/fsync/close may still have changed the journal. Its last
+     * disk offset is now uncertain: a same-process retry must atomically
+     * rebuild from the complete in-memory prefix, never append the record
+     * again. Also retry a failed steering cleanup even when offset/done are
+     * unchanged; otherwise the fast path could leave an old correction live. */
+    if (result < 0) c->journal_loaded = 0;
     return result;
 }

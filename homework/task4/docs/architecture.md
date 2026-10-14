@@ -1,140 +1,147 @@
-# 系统架构与方案 4 接口
+# 方案 4 架构与持久化契约
 
-本项目实现实验指导书方案 2 的并发流式文本交互。设计将客户端交互、网络帧、会话存储和文本来源分别组织，便于理解系统调用的协作关系，并为本地模型后端保留接口。
-
-## 进程与数据路径
+## 进程和资源归属
 
 ```text
-stream_server 主进程
-  ├─监听套接口，poll / accept，记录工作进程 PID
-  ├─fork → 会话 A 工作进程
-  │          ├─会话 A 的锁、日志、轮次与上下文
-  │          └─fork + exec → text_generator A
-  │                            stdout → pipe → 工作进程 → TCP → client A
-  │                            stderr → 会话 A / 当前轮 / generator.log
-  └─fork → 会话 B 工作进程
-             ├─会话 B 的锁、日志、轮次与上下文
-             └─fork + exec → text_generator B
-                               stdout → pipe → 工作进程 → TCP → client B
+stream_server 主进程：listen / poll / accept / fork / waitpid
+  ├─ worker A：TCP A、session A 的 flock、事件日志、当前轮 response.txt
+  │    └─ fork/exec Python adapter A：原始生成 journal、HTTP 流 A
+  └─ worker B：TCP B、session B 的 flock、事件日志、当前轮 response.txt
+       └─ fork/exec Python adapter B：原始生成 journal、HTTP 流 B
+                       │
+                       └── 127.0.0.1 llama-server：共享只读权重、独立推理槽
+                                      └── CUDA GPU（或 CPU）
 ```
 
-主进程只负责接受连接与管理工作进程。每个工作进程在自己的套接口上执行握手、收集提问、重放回答或启动生成器，通过 `poll` 同时等待生成管道和客户端连接状态。一个客户端断开后，只停止、回收其工作进程关联的生成器；主进程和其他工作进程继续运行。
+课程服务端、客户端以及每轮独立生成进程仍分离。llama-server 是共享推理依赖，只加载一次模型；两个推理槽允许两次推理同时推进，更多请求排队。连接数与推理槽数分别限制，默认是 32 和 2。不能将多个工作进程分别加载整份模型，否则显存和冷启动成本会随连接数增长。
 
-服务端容量默认 32 个连接，最多 64 个。已结束的工作进程通过 `waitpid(..., WNOHANG)` 回收后释放容量；服务器收到 SIGINT 或 SIGTERM 时关闭监听，通知工作进程结束并回收它们。Linux 的父进程死亡信号用于使工作进程和生成器随所属父进程退出，生成器停止函数负责关闭管道、发信号与 `waitpid` 回收。
+工作进程持有会话锁，处理一轮时 `poll` 同时等待生成输出、客户端控制帧和子进程 pidfd。生成器关闭 stdout 不等于进程已经退出；输出 EOF 后继续通过 pidfd 等待并响应取消、发送心跳，避免阻塞 `waitpid` 使控制失效。pidfd 就绪后使用 `waitpid(..., WNOHANG)` 回收。C 层启动生成器前令不相关文件描述符 close-on-exec；生成器 stdin 接 `/dev/null`，stderr 追加到本轮 `generator.log`。模型的带类型帧输出用 `socketpair`，从而复用完整帧接收函数。只有该工作进程能写该会话的正式回答与终态标记。
 
-## 模块边界
+取消时，工作进程关闭生成连接、终止并 `waitpid` 回收生成子进程，然后保存 `cancelled` 并确认；独立适配器退出也关闭其 HTTP 流，llama-server 回收相应推理任务。其他工作进程、模型进程继续运行。服务端停止时逐一通知并回收 worker；Linux `PR_SET_PDEATHSIG` 同时覆盖父进程被 SIGKILL 的情况。模型服务独立启动、独立停止，不由某一个会话所有。
 
-| 模块 | 对外接口或主要调用 | 责任 |
-| --- | --- | --- |
-| `src/client/main.c` | `t4_connect`、`t4_send`、`t4_recv`、checkpoint 接口 | 读取一行问题、分帧发送、验证回答序号/偏移、持久化后显示 |
-| `src/server/main.c` | `t4_listen`、session 接口、backend 接口 | 接入并发连接、执行协议状态机、转发完整码点、心跳和回收 |
-| `src/net/protocol.c` | `include/task4/protocol.h` | 网络字节序帧、部分收发、单调时钟期限、连接与监听 |
-| `src/storage/session.c` | `include/task4/store.h` | 独立会话目录、非阻塞文件锁、问题/回答/日志及上下文重建 |
-| `src/storage/checkpoint.c` | `include/task4/checkpoint.h` | 客户端恢复元数据、回答追加记录与文件锁 |
-| `src/storage/files.c` | `include/task4/files.h` | 两侧共有的路径拼接、完整文件写入和目录同步；不依赖会话或生成后端 |
-| `src/backend/corpus.c` | `include/task4/backend.h` | 随机选择并固定本轮语料、管道与生成器启动、停止和回收 |
-| `src/generator/main.c` | stdin/stdout/stderr 和命令行 | 读取语料并逐码点输出，支持码点速率与字节恢复偏移 |
-| `include/task4/text.h` | `t4_character_width`、`t4_character_valid` | 检查完整 UTF-8 码点，防止截断、过长编码、代理项与越界值 |
+## 模块与依赖方向
 
-头文件由 `include/task4/` 统一提供，调用方用 `#include "task4/xxx.h"` 明确接口所属。Makefile 将目标文件放入与源文件相对应的 `build/` 子目录，通过 `-MMD -MP` 生成头文件依赖。三个可执行文件统一输出到 `bin/`，运行数据不进入构建目录。
+| 模块 | 职责 |
+| --- | --- |
+| `client/main.c` | 问题分帧、socket/tty 并发等待、取消与纠偏、会话切换、错误恢复循环 |
+| `client/terminal.c` | 非规范输入、UTF-8 编辑、键盘历史与鼠标滚动分流、粘贴、独立输入区 |
+| `client/view.c` | 对话显示缓存、按宽度重排、主题、灰色思考/指标与滚动位置 |
+| `client/screen.c` | 屏幕行差分、不可变待发送帧、有界非阻塞终端写出 |
+| `client/status.c` | 显示指标解析、拥有独立存储的状态字段 |
+| `client/state.c` | 独立新会话、稳定列表/解析、锁保护软删除、终态正文归档与回放 |
+| `server/main.c` | 每连接状态机、生成事件验证/转发、心跳、取消确认 |
+| `net/protocol.c` | 网络字节序、完整收发、帧总期限、监听与连接 |
+| `net/discovery.c` | 主服务租约、自动端口发布、实例校验及恢复会话筛选 |
+| `storage/session.c` | 会话锁、原子建立轮次、后端标识、历史和终态 |
+| `storage/checkpoint.c` | 客户端回答 journal、校验/残尾修复、持久纠偏队列 |
+| `storage/files.c` | 路径、完整文件写入、目录同步 |
+| `backend/process.c` | 生成子进程与 FD 生命周期 |
+| `backend/model.c` | 模型配置快照，启动独立 Python 适配器 |
+| `model/adapter.py` | 完整历史、官方模板、本地生成、事件与统计 |
+| `model/transport.py` | 限定回环地址、禁代理、HTTP/SSE 解析 |
+| `model/discovery.py` | 验证健康状态/模型身份、解析受管回环端点 |
+| `model/journal.py` | 原始生成日志、持久快照、残缺尾部修复 |
+| `model/stream.py` | 跨 SSE 片段的思考/回答分流，T4 帧编码 |
 
-客户端链接 `client/main`、`storage/checkpoint`、`net/protocol` 与 `storage/files`，服务端链接 `server/main`、`storage/session`、`backend/corpus`、`net/protocol` 与 `storage/files`。`checkpoint` 与 `session` 都通过 `files.h` 使用公共文件操作，因此客户端不需要链接服务端的会话或语料后端模块。独立生成程序链接 `generator/main` 与 `net/protocol`，借用其中的严格数字解析接口。
+公共接口统一位于 `include/task4/`。客户端只链接自身入口、terminal、view、screen、status、client state、checkpoint、files、protocol 和 discovery；不会引入会话或模型后端。服务端额外链接 session 和 backend。Makefile 的 `build/` 与源目录镜像，`.d` 文件记录头文件依赖。Python 只用标准库；C 客户端通过固定版本 jsmn 解析显示所需的 STATUS 字段，未知嵌套字段跳过，非法更新不会部分覆盖已显示指标。
 
-`data/demo/corpus/` 保存自动演示使用的短语料，默认运行仍选择 `data/corpus/`。`scripts/demo.py` 启动真实 C 程序，使用临时状态并重录并发、流式、恢复和隔离日志；`scripts/render_report.py` 保留报告正文，按当前头文件、源码、Makefile 和数据文件更新统计与源码附录。这些 Python 脚本服务于检查和文档维护，不进入 C 程序调用链。
+## 自动端口与服务身份
 
-## 会话与文件组织
+课程服务端默认绑定端口 0，由内核在实际 `bind` 时分配端口，通过 `getsockname` 取得真实地址，不使用“探测一个空端口、关闭后再绑定”的竞态方式。显式非零 `--port` 保持固定端口语义。主进程持有 `<state>/server.lock` 独占锁，worker 在 fork 后关闭继承的主锁 FD；因此主进程被 SIGKILL 后不会由 worker 延长错误的服务存活记录。
 
-一次首次连接由服务器生成 16 字节随机值，转换成 32 位小写十六进制 token。客户端保存该 token；重连时发送它，服务器打开原会话。一个会话同时只允许一个连接持有 `session.lock`，不同会话的锁和目录独立。
+每次启动生成新的 128 位实例标识，写入锁文件，再原子发布 `<state>/server.endpoint` 和 `state/services/<dev>-<inode>.endpoint`。读取者核对目录设备/inode、当前锁仍被持有、锁中的实例与两份记录一致；旧记录即使残留也不会成为活动候选。文件读取有长度上限，拒绝符号链接、FIFO 和其他非普通文件。正常退出仅删除属于本次实例的发布记录，保留会话与 checkpoint。
 
-默认状态结构：
+无参数客户端选择唯一活动服务；`--resume` 根据已有会话 token 筛选服务状态目录，因此地址变化不要求修改 checkpoint。多候选明确报歧义，可用 `--server-state DIR` 指定。连接后，在 HELLO 前进行只读 `PROBE → SERVICE(instance)`，再次核对同一连接上的实例，避免端口被复用时把新会话建在另一服务中。显式 `--host/--port` 不依赖本机注册文件，仍允许原来的直接 HELLO 握手。
+
+本地模型使用独立的 `.runtime/model-service.json` 保存服务列表，兼容读取单实例记录。模型启动器验证已有实例的健康状态、模型文件/别名、槽数和容量，匹配时复用，否则使用 llama-server 的端口 0 启动并在健康后发布真实地址。发布、复用和退出清理共用启动锁；新启动或选中的服务排在列表首位，其他仍存活的实例保留。CPU 启动只复用已确认的 CPU 实例；GPU 启动跳过已确认的 CPU 实例，也允许复用模式未知的兼容外部服务，此时不能据复用结果确认 GPU 已启用。退出只移除对应实例，不删除其他服务的发现入口。模型发现与课程服务发现分开，二者都不把运行地址写进用户对话历史。
+
+后端 `start` 接口接收当前 `runtime_config` 路径，以 `--runtime-config` 传给适配器。适配器仅取其中 endpoint 构造连接配置，推理参数仍来自本轮冻结的 `model-config.json`。因此已有快照能够跟随当前自动端口，恢复不改写快照中的推理设置，仍检查模型文件信息、构建、模板与容量。
+
+## 交互终端与会话入口
+
+默认启动使用 `mkdtemp` 创建独立会话目录，`--resume FILE` 显式恢复已有 checkpoint，`--checkpoint FILE` 保留创建或恢复的兼容行为。锁被占用时拒绝启动第二个写入者；暂停的进程仍持锁。正常退出自动释放锁，不删除锁文件。
+
+stdin 与 stderr 均为 TTY 时启用 termios 编辑器：关闭 ICANON/ECHO、保留 ISIG，按字节接收并按完整 UTF-8 码点编辑。`terminal.c` 管理输入、终端生命周期和约 34 ms 的重绘节流；`view.c` 按窗口列数重排本地对话、生成固定底栏与灰色思考/指标的屏幕行；`screen.c` 比较上一帧，只发变化的行。正文采用浅色主题纯黑字，支持深色主题。STATUS 更新本轮缓存，HEARTBEAT 只维护网络期限，都不追加到对话正文。
+
+绘制通过独立打开的 tty 文件描述符使用 `O_NONBLOCK`，不会更改父 shell 或 stdin/stdout 的文件状态标志。每次循环最多尝试 4 次写出；部分写入保留游标，`EAGAIN` 交回主循环。只有一个不可变待发送帧，帧未排空时后续变化继续合并到显示状态；排空后再生成最新行差分，避免无限堆积旧重绘帧。每个输出缓冲区有 8 MiB 上限，退出排空也有有限等待时间。界面拥塞不会用阻塞写占住网络事件循环，文本顺序和持久化顺序不变。
+
+输出完成、状态更新、窗口缩放都不清除尚未提交的草稿。支持 bracketed paste，粘贴换行归一为空格，必须显式 Enter 才提交。启用 SGR 鼠标报告并解析传统 X10 鼠标帧，滚轮仅滚动对话区（每次 3 行），PgUp/PgDn 翻页，键盘 ↑/↓ 独立浏览输入历史；禁用备用屏幕把滚轮转换为方向键的模式。向上查看时保持滚动位置，回到底部后继续跟随新输出。退出或暂停时恢复鼠标模式。`/thinking` 和 `/theme` 不生成模型请求。stdout 重定向仍只写正式回答；`--plain`、非 TTY 和 `--input` 使用逐行显示，默认不打印每次 STATUS，`--verbose-status` 可显式开启。
+
+界面缓存限制为约 1 MiB 文本、128 个条目，满时先淘汰旧条目，再裁掉单个超长当前轮的前部并作标记；磁盘记录和模型历史不受影响。重开或切换时，从本地终态归档恢复已保存的多轮正文，并合并当前 checkpoint，按 request 去重。未存本地归档的会话只有现存 checkpoint 能恢复，不从服务端下载完整聊天。网络空闲期限用单调时钟独立计算，约 34 ms 的 UI 唤醒不刷新该期限。界面缓存与下一轮模型提示构造没有调用通路。
+
+TUI 具有持久的会话循环：`/sessions` 通过回调读取按 ID 排序的本地元数据；`/new` 建立独立 checkpoint；`/switch ID|FILE` 先解析、持锁并加载目标，再释放旧 checkpoint。只有成功切换到另一会话才关闭当前传输，保留 pending 轮次；切回后 `/retry` 从已保存前缀继续。无效、损坏、占用或当前会话目标不打断原生成，删除其他闲置会话也继续接收当前输出。网络或生成错误关闭失败的连接，在对话与状态属性中显示原因，仍接受 `/retry`、`/stop`、新建或切换。切换已提交后若新服务握手失败，停留在目标会话并提供恢复操作。批处理及 `--resume-only` 等调用保留失败退出码。
+
+`/delete [ID]` 只移动受管 `session-XXXXXX`，当前会话先切换到新会话。存储模块先取得该 checkpoint 的原 `flock`，验证目录、锁和 checkpoint 身份，再用 Linux `renameat2(RENAME_NOREPLACE)` 移入 `session_dir/.trash/` 并同步两个父目录；不会 unlink 锁，也不会覆盖已有回收目录。会话被其他进程占用、路径是外部文件或符号链接时拒绝操作。checkpoint、正文归档与锁 inode 一起保存，可移回原目录或显式恢复回收目录中的 checkpoint；服务端会话副本不变。删除当前会话时若软删除失败，已完成的新会话切换不会自动撤销。
+
+SIGINT 在生成时发送 CANCEL、空闲时清草稿；SIGWINCH 重绘；SIGTSTP 先恢复 termios 与滚动区再停止，继续运行后恢复编辑器。正常退出、SIGTERM/SIGHUP 和失败路径均恢复终端。每个信号处理函数只设置标志，在主循环处理；帧传输期间暂缓交互信号，防止半帧丢失。
+
+服务端看板 `scripts/server/dashboard.py` 是独立只读 curses 进程，每秒扫描状态目录和 `/proc/locks`，按会话锁 inode 判断连接/worker。它不获取业务锁、不写会话文件，不参与生成生命周期。文件读取限制长度并拒绝符号链接、FIFO 等特殊文件；指标是带时效的快照，`ctx~` 为当前尝试输入与已生成 token 的估计，不能替代 tokenizer 的准入校验。默认隐藏问题和思考正文。
+
+## 状态文件
 
 ```text
 state/
-├── a.ckpt                       # 客户端 A：元数据、问题与回答追加记录
-├── a.ckpt.lock                  # 客户端 A 的文件锁
-└── server/
-    ├── <session-A-token>/
-    │   ├── session.lock
-    │   ├── events.log           # 接入、生成/重放、完成、断开事件
-    │   ├── context.txt          # 下一轮开始前，由已完成轮次重建
-    │   ├── turn-00000001/
-    │   │   ├── prompt.txt       # 本轮提问原文
-    │   │   ├── source.txt       # 固定的随机语料快照
-    │   │   ├── response.txt     # 服务端已持久化的回答前缀
-    │   │   ├── generator.log    # 本轮生成器 stderr，重启时追加
-    │   │   └── done             # 生成成功完成的持久标志
-    │   └── turn-00000002/
-    └── <session-B-token>/
+├── clients/
+│   ├── session-XXXXXX/         # 默认启动或 /new 创建的独立目录
+│   │   ├── checkpoint.ckpt    # T4CHECK2：当前轮问题、回答追加记录和终态
+│   │   ├── checkpoint.ckpt.lock # 客户端独占 flock；获得锁后记录 PID
+│   │   ├── checkpoint.ckpt.steer # 可选：尚未提交的纠偏，绑定 session/old request
+│   │   └── checkpoint.ckpt.history/
+│   │       └── turn-00000001.ckpt # T4HIST1：仅供显示的终态正文快照
+│   └── .trash/session-XXXXXX-<随机后缀>/ # 本地软删除，保留完整目录和原锁
+└── model-server/<token>/
+    ├── session.lock           # 同一会话仅一个连接
+    ├── events.log             # connected/generate/replay/completed/cancelled/disconnected
+    ├── context.txt            # C 重建的可读历史，用于核查；不是模型提示词解析源
+    └── turn-00000001/
+        ├── prompt.txt         # 原始问题，不可改变后重试同一请求编号
+        ├── backend.txt        # llama，核对轮次后端标识
+        ├── response.txt       # C 层持久保存并发送的正式回答
+        ├── generator.log      # 每轮独立 stderr
+        ├── model-config.json  # 建立轮次时复制的配置
+        ├── model-snapshot.json# 结构化消息、配置、模型/模板标识等快照
+        ├── rendered-prompt.txt# 官方 chat template 渲染结果
+        ├── raw-generation.jsonl # 先落盘的原始生成片段及完成记录
+        ├── thinking.txt       # 从原始流提取的思考文本
+        ├── metrics.json       # token 数、首 token 等待、推理吞吐等
+        └── done 或 cancelled  # 二者为不同终态；中断时两者都没有
 ```
 
-语料从 `data/corpus/` 中的普通 `.txt` 文件分别随机选择；目录扫描使用蓄水池抽样，并通过系统随机源取样。新轮次先在会话目录下建立暂存目录，保存问题、复制所选语料并创建空回答文件，再将完成的目录发布为 `turn-000000NN`。恢复时继续使用该轮 `source.txt`，即使原语料库后来改变，也不会改变这一轮回答。
+新轮次在临时目录写入问题、后端标识、模型配置和空回答，`fsync` 后 `rename` 发布，再同步父目录。会话 token 是 16 个随机字节的小写十六进制表示，目录互不共用。
 
-`context.txt` 在每轮处理前从该会话之前已经完成的轮次重建，包含 `user:` 与 `assistant:` 文本，不读其他 token 的目录。当前语料后端忽略提问及上下文内容；这个文件证明上下文按会话组织，并为将来的模型适配提供路径。正在生成的半段回答不会被当作已完成的上一轮历史。
+模型适配器按请求编号读取当前会话之前的 `done` 轮次，将 `prompt.txt`、`response.txt` 组成结构化 user/assistant 消息。忽略取消轮次；C 会话层拒绝越过未终结轮次。`context.txt` 只是可读证据，不用字符串中的 `user:`/`assistant:` 重新推断角色，避免用户文本混淆历史边界。历史中没有思考、状态文本和半段回答。
 
-## 流式处理与低速生成
+## 输出与恢复的提交顺序
 
-客户端按行收集输入，然后以 `BEGIN → INPUT… → COMMIT` 发送。当前每个 `INPUT` 帧最多 128 字节，UTF-8 问题可能在帧之间拆开，但服务器先完整拼接再处理；只有 `COMMIT` 后才开始生成。因此当前交互是“分帧传输一条完整问题”，没有逐键输入时即时生成的行为。
+1. llama-server 输出 SSE 原始文本片段。适配器先把原始片段追加到 `raw-generation.jsonl` 并同步，再解析为 THINK/DELTA。
+2. 思考标签可以跨任意 SSE 片段；增量解析器保留未确认的标签前缀，避免将 `</thi` 当正文。初始状态来自实际渲染模板中是否已打开思考段。
+3. C 工作进程收到正式回答码点后，先追加 `response.txt` 并 `fsync`，再发送 DELTA。
+4. 客户端校验 request、字节偏移和完整 UTF-8，先追加 checkpoint 并同步，再显示。THINK/STATUS/HEARTBEAT 不进入回答 checkpoint。
+5. 模型正常 EOS/stop 结束且生成子进程成功退出后，C 层才保存 `done` 并发 END。`limit`、截断或异常 EOF 不算完成。
+6. 完整交互 TUI 收到 END/CANCELLED 并保存终态后，将该轮正式问题、回答和终态原子归档到 `<checkpoint>.history/`，供切换和重开界面显示；开始下一轮前也检查旧轮归档。归档不修改服务端模型历史。
 
-生成器逐个读取并验证 UTF-8 码点，`fwrite` 后立即 `fflush(stdout)`。服务器从管道一次可能读到多个字节，也可能读到半个码点，使用小型组装缓冲区只在码点完整时生成 `DELTA`。客户端验证每个 `DELTA`，落盘后立即写 stdout 并 flush。TCP 使用 `TCP_NODELAY`，不等待整篇回答凑齐。
+因此原始模型 journal 可以领先 C 的回答缓存，C 缓存可以领先客户端，但反向领先属于损坏，应拒绝恢复。重连仍上传同一问题与客户端正文偏移：C 先重放缓存缺口；适配器再从 journal 推导完整回答，核对 C 缓存是其前缀，重放适配器已经落盘但尚未交付的后缀，随后把冻结模板与完整原始生成前缀交给 `/completion` 续写。
 
-`--rate` 是语料输出的 Unicode 码点/秒，用 `nanosleep` 表达演示节奏；管道和网络等待使用 `poll`，没有以 sleep 轮询数据到达。`--rate 0` 去除演示节奏。语言模型可能一次输出多字节文本、出现较长首 token 等待或生成停顿；帧协议允许每个回答码点继续传输，工作进程在约 1 秒没有管道数据时发送心跳，避免客户端把暂时没有文字当作整轮失败。
+若 journal 已包含完成记录，适配器只重放并结束；模型服务不必重新推理。完成记录保存生成量、耗时、首段输出延迟及速度，重放沿用这些统计，不把磁盘回放耗时当作推理时间。统计属于最后一次实际推理尝试，不跨多次 retry 累计。缺少统计的较早记录只使用能恢复的指标，不补造缺失数值。未完成续写需验证模型服务标识与原快照匹配。该恢复保证已交付文本前缀一致，不保存 GPU KV cache、采样器状态或未落盘 token；恢复后的新后缀允许与不中断的运行不同。
 
-每次帧收发使用 `CLOCK_MONOTONIC` 的独立期限，期限覆盖该帧报头与正文的全部部分收发，收到部分字节不会重置期限。它限制无法完成的帧等待；整轮生成没有固定总时限。客户端默认帧期限 10 秒且至少 1.5 秒，服务端默认 600 秒。心跳不增加回答偏移、不写入正文、不作为生成速度统计。
+原始 journal 的残缺末行可以截去；完整但非法记录不能跳过。客户端 journal 同样只修复不完整尾部，完整记录校验失败则报错。正式回答以 UTF-8 字节计游标，token 数只用于性能和资源指标。终端显示与文件同步无法成为一个原子事务；完整正文以持久文件为准。
 
-## 断点恢复与持久化顺序
+## 取消、纠偏和崩溃
 
-服务端以完整码点为单位先追加 `response.txt` 并 `fsync`，然后发送 `DELTA`。客户端先将完整 `DELTA` 及其偏移保存到 checkpoint 的追加记录并同步，再显示文字。客户端 checkpoint 是一个同时包含轮次元数据和追加记录的文件：新轮次用临时文件、`fsync`、`rename` 与目录同步替换它，该轮回答逐码点追加；不在每个码点到达时重写全部回答，回答保存工作量随输出字节数线性增长。
+`CANCEL` 是显式终态操作，`cancelled` 轮次不再推理。网络断连、SIGTERM、工作进程/模型崩溃没有这个标记，保留恢复资格。取消确认丢失时，重连重放 C 缓存后再次返回 CANCELLED。下一请求编号照常加一，C 和 Python 两层历史构造都会跳过该取消轮。
 
-重连后客户端发送 token、原请求编号、原问题以及已保存的回答字节偏移。服务器检查轮次顺序、问题与原始 `prompt.txt` 完全一致、偏移没有超过持久回答长度，然后从客户端偏移重放 `response.txt` 的后缀。若该轮已有 `done`，重放后发送 `END`；否则从服务端已持久化长度启动生成器，继续读取固定语料。
+`/steer TEXT` 先检查“原问题 + User correction + TEXT”没有超过字节上限，写 `<checkpoint>.steer` 并同步，再发送 CANCEL。客户端只在收到旧轮终态后创建新请求 checkpoint；新 checkpoint 落盘后才移除纠偏队列。这样崩溃不会让纠偏静默丢失或重复执行；恢复看到旧轮尚未终结时先取消，看到新轮已经提交时只清除过时队列。
 
-客户端追加记录若在中断时留下不完整尾部，只将完整、验证通过的记录作为恢复依据，并截去该尾部再继续追加；完整但校验错误的记录会被拒绝，不当成普通中断尾部忽略。恢复游标必须位于 UTF-8 码点边界，不能把半个中文字符当成已经完成。服务端、客户端两侧状态须共同保留。
+END 与 CANCEL 可能在相反方向同时传输。若 END 先完成，服务端对刚完成轮次的迟到 CANCEL 返回已有 END；客户端识别并忽略上一轮的重复终态。若 CANCEL 先处理，服务端停止子进程并返回 CANCELLED。两种结果都保持同一连接可继续。
 
-终端显示与持久化文件不能形成一个原子事务：若客户端在文件同步后、显示前退出，重连不会再次显示那段已保存文字；完整正文仍保留在恢复记录中。这里保证的是持久正文和传输恢复的连续性，终端输出历史由终端自身保存。
+## checkpoint 与限制
 
-## 客户端 checkpoint 格式
+`T4CHECK2` 头依次保存 magic 行、token 行、`request prompt_length file_lines` 行及原问题字节。追加记录由四个网络序 uint32 组成：type、offset、length、FNV-1a 校验，随后跟正文。DELTA=6 含一个码点；END=7 和 CANCELLED=12 均无正文，对应 `done=1` 和 `done=2`；`done=0` 表示可恢复的未完成轮。
 
-文件版本为 `T4CHECK2`，文件头按以下顺序保存；字段间的 LF 是文件格式的一部分，问题正文由长度界定：
+保存返回错误时，磁盘上可能已经有完整或部分新记录，因此使内存中的 journal 追加位置失效。下一次同进程重试从完整内存前缀原子重建 checkpoint，不重复追加不确定的记录。纠偏队列清理失败也走这一恢复路径，避免相同 offset/done 的快速返回跳过清理。故障注入测试覆盖 DELTA、END、CANCELLED 同步失败、部分写、close 失败、替换后目录同步失败及纠偏清理失败。
 
-```text
-T4CHECK2\n
-<32 字节 session token>\n
-<request> <prompt_length> <file_lines>\n
-<prompt_length 字节原问题>
-<二进制追加记录>…
-```
+终态显示归档使用独立 `T4HIST1` 格式，不可作为活动 checkpoint 传入 `--resume`。固定 64 字节头保存 magic、会话 token、request、问题/回答长度、终态、文件行游标与 FNV-1a 校验，随后是完整问题和正式回答。正文最多 16 MiB、问题最多 4096 字节，每会话最多 10000 轮；加载前校验文件大小、属主、单硬链接、普通文件类型和 UTF-8。临时文件同步后以不覆盖的原子重命名发布，同内容重复归档幂等，不同内容或损坏记录明确报错；未发布的临时文件不参与回放。归档没有 THINK、STATUS 或纠偏队列，不被模型适配器读取。
 
-`file_lines` 记录文件输入已消费的行数。普通 `--input` 恢复先跳过这些行，再恢复未完成回答并继续后续问题；要求使用同一份未修改的输入文件。当前没有文件身份或内容摘要校验，所以不能通过换文件来延续同一个 checkpoint。`--resume-only` 只恢复待完成回答，不消费新输入。
+帧总期限用单调时钟计算，部分收发不会刷新同一帧期限。生成等待期间约每秒心跳，排队/慢首 token 不导致默认 10 秒客户端期限误判。客户端交互取消通过 `poll` 唤醒；为防 Ctrl+C 丢弃半帧，SIGINT 在单帧传输期间暂缓，最长受帧期限限制。SIGTERM 仍用于退出并保留断点。
 
-每条追加记录是四个网络字节序 `uint32_t` 加 0–4 字节正文：
-
-| 记录字段 | 长度 | 含义 |
-| --- | --- | --- |
-| `type` | 4 字节 | 使用 `T4_DELTA=6` 或 `T4_END=7` |
-| `offset` | 4 字节 | 该条记录之前已保存的回答字节数 |
-| `length` | 4 字节 | DELTA 为 1–4，END 为 0 |
-| `checksum` | 4 字节 | 对前 12 字节报头及正文计算的 FNV-1a 32 位值 |
-| `body` | `length` 字节 | 一个完整 UTF-8 码点；END 无正文 |
-
-载入时从 offset=0 顺序验证每条记录，由 DELTA 累计恢复偏移，由 END 确认完成。FNV-1a 用于发现损坏记录，不用于认证。`scripts/checkpoint.py` 使用相同格式只读检查和导出当前轮回答；若发现残缺末尾只报告 `torn_bytes`，截断修复由 C 客户端持有锁时执行。
-
-## 方案 4 的适配位置
-
-公共接口定义于 `include/task4/backend.h`：
-
-```c
-struct t4_backend {
-    const char *name;
-    int (*prepare)(const char *corpus_dir, const char *turn_dir);
-    int (*start)(const char *generator, const char *turn_dir,
-                 const char *context_path, uint32_t offset, uint32_t rate,
-                 struct t4_generation *generation);
-};
-```
-
-`prepare` 在新轮次建立时固定这一轮的生成依据；`start` 接收轮次目录、会话上下文路径、已持久化字节偏移和演示速率，返回子进程 PID 与非阻塞 stdout 管道读端。工作进程通过统一接口读取数据并调用 `t4_generation_stop` 取消、回收生成器。
-
-当前语料后端通过 `fork`、`dup2`、`exec` 启动 `text_generator`，传入 `source.txt`、`prompt.txt`、`context.txt` 路径。模型后端可放到 `src/backend/`，在 `prepare`/`start` 生命周期中读取该会话的提问和历史，启动本地推理，并保持 stdout 为 UTF-8 回答、stderr 为诊断。推理依赖、参数与安装说明集中放入 `deps/`。
-
-语料恢复可以从固定文件准确跳到字节偏移；模型恢复需要新的生命周期实现，不能仅重新启动推理再跳过同样数量的字节。采样、推理缓存和运行环境可能使重生成内容变化。实际适配应保存足够的生成状态，或采用能保证已发前缀一致的恢复策略，并验证后续内容与已保存前缀衔接；网络层和存储层可继续复用已有 token、请求序号和字节游标。
-
-真实 token/s 需要模型对应的 tokenizer、token 计数以及首 token 时间和后续吞吐计时。当前项目没有这些统计，不把码点速率标成模型速度。未来还需按模型资源能力安排并发、限定上下文长度，并将模型恢复策略纳入验证；当前源码提供接口与数据组织，不包含模型文件、推理部署或方案 4 的回答能力。
+新轮次每次尝试默认输出最多 4096 token（含思考和正文），上下文每槽 16384 token，共 2 槽。C 后端建立新轮时读取当前配置，修改预算无需重启现有模型或课程服务。适配器使用本地 tokenizer 检查资源，不静默截去旧消息。运行时身份只允许容量增加，其余模型、构建和模板字段仍严格匹配；已有未完成轮次仍使用冻结配置，修改默认值不改变其预算。超限会明确报错，TUI 保留该轮与续传入口；本系统暂不实现自动摘要、滑动历史或在现有推理内部直接修改用户消息。两并发槽不承诺每个用户维持单独运行时的 token/s。

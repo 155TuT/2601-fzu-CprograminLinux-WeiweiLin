@@ -1,0 +1,16 @@
+$ python3 scripts/model/smoke.py
+local model=Qwen3.5-4B
+endpoint=http://127.0.0.1:8081 thinking=True
+$ /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_server --port 0 --backend llama --model-config /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/config/model.json --state /tmp/task4-model-smoke-7sa_clob/server --max-clients 2
+$ /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client --port 38160 --input /tmp/task4-model-smoke-7sa_clob/MAPLE.txt --checkpoint /tmp/task4-model-smoke-7sa_clob/MAPLE.ckpt
+$ /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client --port 38160 --input /tmp/task4-model-smoke-7sa_clob/CEDAR.txt --checkpoint /tmp/task4-model-smoke-7sa_clob/CEDAR.ckpt
+MAPLE: session=b6d7ccbf0c04eb3d444cc313b760419b request=2 done=1 exit=0
+MAPLE: final answer='\n\nMAPLE'
+MAPLE: persisted answer=7 bytes; isolated context verified
+CEDAR: session=7b927c48d2b088409b620f0225250bfe request=2 done=1 exit=0
+CEDAR: final answer='\n\nCEDAR'
+CEDAR: persisted answer=7 bytes; isolated context verified
+PASS: two independent real C clients completed two turns through the local Qwen model.
+PASS: each client recalled its own code; session tokens and contexts differ.
+Elapsed: 15.530s
+[exit status: 0]

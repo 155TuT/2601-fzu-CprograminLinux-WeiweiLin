@@ -1,0 +1,23 @@
+Pre-fix controlled reproduction, 2026-10-14.
+Real C TUI client, test-owned all-stdio PTYs and random loopback TCP peers.
+No user process, terminal or checkpoint was changed.
+Test --idle-ms: 1500 ms; normal client default: 10000 ms.
+
+Case 1: submit a question, send SIGTSTP through the client's foreground-job
+handler, wait until stopped, queue HEARTBEAT + DELTA("X") + END on TCP,
+wait 1.8 seconds, then SIGCONT and drain the PTY.
+Actual output:
+REPRO job suspend: pending=True offset=0 error=True
+
+Case 2: submit a question, stop reading the PTY master while sending 65 THINK
+frames at 40 ms intervals (2.6 seconds), then queue HEARTBEAT + DELTA("Y")
++ END. Inspect the test-owned client's wait channel, then drain the PTY.
+Actual output:
+REPRO backpressure: before drain wchan=wait_woken
+REPRO backpressure: pending=True offset=0 error=True
+
+In both cases error=True means the real client printed "Connection timed out"
+despite a valid answer and END already being queued in the network socket.
+The new regression cases are in tests/verify_tui.py. They require successful
+completion with the exact saved answer after the same local delays, while
+retaining timeout checks for a genuinely silent peer and an incomplete frame.

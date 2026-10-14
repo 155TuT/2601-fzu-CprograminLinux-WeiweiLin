@@ -1,0 +1,10 @@
+ TASK4  /  Qwen3.5-4B / layout fixture
+ Qwen3.5-4B / layout fixture
+  打开失败时 fp 是 NULL；检查后才能安全
+  使用它。
+  同一会话可以继续追问。
+ completed  /  24 tok  /  72.8 tok/s  /
+   0.4s  /  ctx 81/16384
+
+ completed  |  Enter send  Ctrl+C clear
+question> <稿：请解释 fgets 的返回值🙂

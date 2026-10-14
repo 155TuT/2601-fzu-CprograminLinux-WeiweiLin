@@ -1,0 +1,2 @@
+[model] listening at http://127.0.0.1:38046; owned PID=319379; log=/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/.runtime/model-launch-97daac446c474f9a8a23569bf5600785.log
+[model] endpoint registry: /home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/.runtime/model-service.json

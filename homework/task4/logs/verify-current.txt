@@ -1,0 +1,178 @@
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g  -o build/tests/status_unit tests/status_unit.c build/client/status.o 
+gcc -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Iinclude -Ideps -std=c11 -Wall -Wextra -Wpedantic -Werror -O2 -g  -Wl,--wrap=write,--wrap=fsync,--wrap=close,--wrap=unlink -o build/tests/checkpoint_faults tests/checkpoint_faults.c build/storage/checkpoint.o build/storage/files.o 
+./build/tests/status_unit
+PASS complete 16k status and stable owned labels
+PASS partial updates retain fields and skip nested unknown objects
+PASS JSON label escapes decoded without terminal control bytes
+PASS invalid status cannot partially replace the visible state
+PASS oversized labels rejected; all 5 status parser checks passed
+./build/tests/checkpoint_faults
+PASS F01: a written UTF-8 delta whose fsync fails is rebuilt without duplicate offsets
+PASS F02: an END fsync failure retries without duplicate terminal records
+PASS F03: a CANCELLED fsync failure retries without duplicate terminal records
+PASS F04: partial journal writes are replaced atomically by the complete memory prefix
+PASS F05: a close error after a successful append forces safe reconstruction
+PASS F06: replacement file fsync failure keeps same-process retry loadable
+PASS F07: directory fsync failure after replacement rename is retried safely
+PASS F08: failed steering unlink is retried even when offset and done are unchanged
+PASS F09: failed directory sync after steering removal never repeats the correction
+All 9 checkpoint fault-injection checks passed.
+python3 tests/verify.py
+PASS 01: real clients: multiple questions per connection; isolated tokens, context, turn files and logs
+PASS 02: two real clients stream concurrently; killing one preserves the other and its checkpoint resumes exactly
+PASS 03: split/coalesced TCP frames, multi-frame UTF-8 input, COMMIT gate, complete-codepoint DELTAs and paced output
+PASS 04: empty question / file, exact 4096-byte prompt, complete rejection of long/NUL lines, final line without LF and /quit
+PASS 05: invalid magic/type/token/length/order/NUL/truncated frames and aggregate prompt overflow rejected; worker deadline and server survival
+PASS 06: idempotent completed-request replay, UTF-8 resume boundaries, offset bounds, changed prompt, sequential IDs and exclusive session lock
+PASS 07: graceful server shutdown and SIGKILL both stop descendants; restart resumes saved turn without loss/duplication or fixture-config replacement
+PASS 08: slow first token remains live via non-progress heartbeats; real client idle timeout survives; failed/missing/invalid-UTF-8 adapters retain recoverable state
+PASS 09: checkpoint exclusive lock, malformed file, missing parent and symlink rejection protect saved client data
+PASS 10: empty response and invalid adapter text fail safely; strict program argument validation
+PASS 11: independent fake server: client rejects wrong request/offset, invalid DELTA, bad END/magic/length and missing/truncated replies without saving partial output
+PASS 12: connection capacity leaves admitted client healthy; slots are reusable; forged log/state paths preserve files; missing model configuration fails cleanly
+PASS 13: incremental checkpoint journal: same input rerun creates no extra turns, torn body/header recover, complete checksum corruption and shorter input fail without overwriting
+All 13 integration checks passed (18.8s).
+python3 tests/verify_discovery.py
+PASS P01: default C bind(0) avoids occupied ports; read-only PROBE creates no session and worker drops master lease; no-port client discovers/streams a real UTF-8 turn
+PASS P02: same-state duplicate startup reports existing service without replacing its endpoint; explicit --port bypasses discovery, occupied port and --host-only fail clearly
+PASS P03: multiple services require explicit state for new sessions; saved token selects its own root, while copied-token ambiguity is rejected instead of arbitrary routing
+PASS P04: SIGKILL stale registry is ignored; parent/worker leases release, restart changes port/nonce, and token-only checkpoint resumes its exact pinned UTF-8 answer
+PASS P05: malformed, symlink, FIFO and oversized registry entries are skipped nonblocking; unsafe explicit-state/registry paths are rejected
+PASS P06: a forged live lease/endpoint leading to the wrong TCP service receives only PROBE; mismatched nonce prevents HELLO and checkpoint creation
+All 6 discovery integration checks passed (3.9s).
+python3 tests/verify_controls.py
+PASS 01: PTY /stop preserves the connection; THINK and STATUS remain outside final checkpoint; in-flight answer prefix and CANCELLED persist
+PASS 02: redirected stdout is final-only; all-stdio --plain bypasses TUI; legacy/JSON STATUS are hidden by default and both appear only with --verbose-status
+PASS 03: steering is durable before CANCEL; merged correction starts the next turn; END/CANCEL race and duplicate old terminal do not desynchronize
+PASS 04: actual PTY Ctrl+C cancels thinking and remains connected; /quit during an answer waits for cancellation ACK then exits normally
+PASS 05: combined steering length is checked before cancellation; rejected correction leaves the active turn and checkpoint intact
+PASS 06: durable steering survives client death, cancels old turn first, submits once, recognizes stale sidecar and rejects wrong-session/symlink queues without data loss
+PASS 07: CANCELLED journal survives reconnect and --resume-only does not restart an explicitly cancelled turn
+PASS 08: client rejects invalid thinking UTF-8/offsets, STATUS answer offset and mismatched cancellation terminal without advancing its final checkpoint
+PASS 09: batch --cancel-pending immediately cancels a saved failed turn; cancelled and brand-new checkpoints send no spurious turn
+PASS 10: real C server: one cancelled client remains connected, concurrent client finishes and cancelled half-turn never enters later context
+PASS 11: adapter stdout EOF (with or without END) before child exit stays live and cancellable; no false done, child reaped and same session reusable
+All 11 control integration checks passed (7.7s).
+python3 tests/verify_terminal.py
+PASS T01: waiter accepts a normal exit between process checks
+PASS T02: all-stdio PTY: Unicode backspace/left/delete, Home/End and history edit whole characters; normal exit restores termios
+PASS T03: Unicode draft survives asynchronous streaming, resize and END; bracketed multiline paste stays editable and requires explicit Enter
+PASS T04: real tty Ctrl+C cancels and keeps the connection reusable; normal and SIGTERM exits restore terminal settings
+PASS T05: identical default commands create independent auto sessions; explicit resume preserves history; held lock and missing resume fail without changing saved data
+PASS T06: real shell job-control Ctrl+Z/fg restores the input UI and Unicode draft while retaining the session lock; shell stays usable after exit
+PASS T07: long Unicode draft scrolls/resizes without loss; Ctrl+A/E/U/K/W edit correctly; idle Ctrl+C clears immediately without waiting for another key
+All 7 terminal checks passed (10.3s).
+python3 tests/verify_tui.py
+PASS U01: STATUS JSON stays outside chat; successive updates replace one visible metadata line
+PASS U02: upstream completed STATUS remains finishing until the C protocol emits END
+PASS U03: light theme renders THINK gray and formal answer black; END leaves one per-turn summary
+PASS U04: two turns retain distinct prompts, answers and exactly one final summary each
+PASS U05: /thinking changes only transcript presentation and restores the cached reasoning
+PASS U06: one live PTY reflows at 140x38, 96x28, 60x18 and 40x10 while preserving its editable Unicode draft
+PASS U07: PgUp/PgDn scroll transcript history while preserving the draft and sending no request
+PASS U08: /theme dark is local; cached transcript and draft use the dark foreground/background palette
+PASS U09: after all resizes and controls, Enter submits the exact original UTF-8 draft; exit restores termios
+PASS U10: 33ms UI ticks do not refresh the 1500ms network deadline; a silent peer leaves a pending checkpoint and an editable error screen
+PASS U11: active Ctrl+Z/foreground resume beyond the idle limit drains queued HEARTBEAT, DELTA and END without a false timeout
+PASS U12: a readable but incomplete frame retains its bounded transfer deadline and reports a frame timeout distinctly from network silence
+All 12 TUI screen checks passed.
+python3 tests/verify_mouse_render.py
+PASS M01: SGR wheel scrolls conversation; keyboard Up/Down recall questions without replacing the unsent draft
+PASS M02: fragmented, malformed, oversized, legacy and release mouse reports never leak into the submitted UTF-8 draft
+PASS M03: line diffs preserve CJK/emoji/combining-character cursors, erase shortened rows and restore mouse modes on exit
+PASS M04: with PTY unread for over two seconds, END still checkpoints before draining; queued screen memory stays bounded and final output appears
+PASS M05: job-control suspension disables mouse reporting; foreground resume restores mouse scrolling and the original draft
+PASS M06: 32 paced one-byte deltas use 3147 ANSI bytes and 38 changed-row updates, without full-screen erases
+{"binary": "/home/ovo155/Mycode/fzucourse/2601-fzu-CprograminLinux-WeiweiLin/homework/task4/bin/stream_client", "geometry": "140x38", "deltas": 32, "delta_bytes": 1, "interval_ms": 45, "ansi_bytes": 3147, "row_addresses": 38, "full_screen_erases": 0}
+All 6 mouse/render checks passed.
+python3 tests/client_sessions_unit.py
+PASS stable structured session enumeration and independent directories
+PASS ID/path resolution, active lock display and active deletion rejection
+PASS independent process flock protects the original session inode
+PASS compact durable history, sorted replay, idempotency and excluded steering metadata
+PASS conflicting, pending, foreign-session and corrupt history rejected without replacement
+PASS recoverable soft deletion preserves checkpoint, history and original lock inode
+PASS arbitrary deletion paths, symlink checkpoints and FIFO checkpoints rejected
+PASS redirected trash/history directories and symlink/FIFO archives rejected
+PASS oversized/hardlinked archives and redirected lock files rejected
+All 9 client session/history checks passed.
+python3 tests/verify_client_sessions.py
+PASS M01: /new and /switch by ID or checkpoint path keep independent tokens and restore the selected conversation's earlier turns
+PASS M02: /sessions, /help, unknown slash commands and a missing switch target leave the current model turn unchanged
+PASS M03: another terminal's active conversation cannot be switched into or deleted; rejected paths preserve the usable current conversation
+PASS M04: /delete moves local conversations to .trash, retains server recovery data and opens a fresh conversation after deleting the current one
+PASS M05: a server ERROR stays inline; /retry reconnects with the same token, prompt, request and durable byte offset without duplicating the answer
+PASS M06: plain text after an error durably queues correction, reconnects and cancels the old request before submitting the corrected next turn
+PASS M07: EOF preserves the failed pending conversation; /new stays in the same TUI process and starts an independent usable connection
+PASS M08: /stop after an error reconnects and persists cancellation, leaving the same conversation ready for an ordinary next question
+PASS M09: /new during streaming preserves the partial checkpoint; switching back waits for /retry and restores the exact final answer
+PASS M10: invalid, busy, damaged and current switch targets plus deletion of another session preserve the live socket and streamed answer
+PASS M11: restart after durable CANCELLED but before committing its queued correction submits the saved next turn exactly once
+PASS M12: an archive failure keeps the latest checkpoint unchanged and blocks overwriting it until its previous turn can be safely archived
+PASS M13: /delete without an ID checks the exact current checkpoint and never deletes a same-named conversation in another directory
+All 13 client conversation checks passed.
+python3 tests/verify_dashboard.py
+PASS D01: numeric latest turn, terminal-marker precedence, offline/error snapshot and native token/context/rate metrics; state unchanged
+PASS D02: real exclusive flock owner maps to active, stopped worker to paused, release to offline; observer preserves held lock
+PASS D03: symlink roots/sessions/files, FIFO, oversize/torn JSON/logs, nonfinite metrics and escape text safely handled; private bodies omitted unless preview enabled
+PASS D04: --once/--json, opt-in preview, missing/non-TTY errors and cell-safe layouts at 18/60/80/140 columns
+PASS D05: real C worker idle/generating progress and disconnect remain distinct from completion; random-port/temp-state only
+PASS D06: all-stdio curses PTY selects/preserves selection across timed refresh, resizes 60/80/tiny/140 columns, preserves UTF-8 and restores termios on q
+All 6 dashboard checks passed (1.6s).
+python3 tests/model_adapter_unit.py
+test_budget_upgrade_keeps_pending_turn_at_frozen_2048 (__main__.AdapterChecks.test_budget_upgrade_keeps_pending_turn_at_frozen_2048)
+A deployment upgrade affects new turns, never an existing journal. ... ok
+test_completed_history_excludes_cancelled_and_future (__main__.AdapterChecks.test_completed_history_excludes_cancelled_and_future) ... ok
+test_completed_replay_restores_durable_statistics_without_metrics_file (__main__.AdapterChecks.test_completed_replay_restores_durable_statistics_without_metrics_file) ... ok
+test_context_decrease_or_other_identity_change_is_rejected (__main__.AdapterChecks.test_context_decrease_or_other_identity_change_is_rejected) ... ok
+test_context_upgrade_preserves_old_turn_ceiling (__main__.AdapterChecks.test_context_upgrade_preserves_old_turn_ceiling) ... ok
+test_cumulative_native_count_and_invalid_terminal_count (__main__.AdapterChecks.test_cumulative_native_count_and_invalid_terminal_count) ... ok
+test_deployed_config_metadata (__main__.AdapterChecks.test_deployed_config_metadata) ... ok
+test_endpoint_move_keeps_snapshot_and_continuation_frozen (__main__.AdapterChecks.test_endpoint_move_keeps_snapshot_and_continuation_frozen) ... ok
+test_endpoint_move_still_rejects_changed_runtime_identity (__main__.AdapterChecks.test_endpoint_move_still_rejects_changed_runtime_identity) ... ok
+test_endpoint_restrictions (__main__.AdapterChecks.test_endpoint_restrictions) ... ok
+test_frame_chunk_utf8_offsets_and_partial_writes (__main__.AdapterChecks.test_frame_chunk_utf8_offsets_and_partial_writes) ... ok
+test_journal_all_torn_positions (__main__.AdapterChecks.test_journal_all_torn_positions) ... ok
+test_legacy_completed_replay_uses_available_statistics_only (__main__.AdapterChecks.test_legacy_completed_replay_uses_available_statistics_only) ... ok
+test_limit_metrics_use_native_total_without_marking_done (__main__.AdapterChecks.test_limit_metrics_use_native_total_without_marking_done) ... ok
+test_marker_every_split (__main__.AdapterChecks.test_marker_every_split) ... ok
+test_new_turn_uses_16k_ceiling (__main__.AdapterChecks.test_new_turn_uses_16k_ceiling) ... ok
+test_prefix_mismatch_and_config_change_fail (__main__.AdapterChecks.test_prefix_mismatch_and_config_change_fail) ... ok
+test_prompt_progress_tokens_do_not_count_as_generation (__main__.AdapterChecks.test_prompt_progress_tokens_do_not_count_as_generation) ... ok
+test_raw_ahead_of_c_response_replays_without_http (__main__.AdapterChecks.test_raw_ahead_of_c_response_replays_without_http) ... ok
+test_resume_uses_frozen_raw_prefix (__main__.AdapterChecks.test_resume_uses_frozen_raw_prefix) ... ok
+test_runtime_transport_override_retains_old_inference_config (__main__.AdapterChecks.test_runtime_transport_override_retains_old_inference_config) ... ok
+test_template_prefill_and_unfinished_thinking (__main__.AdapterChecks.test_template_prefill_and_unfinished_thinking) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.520s
+
+OK
+python3 tests/model_launch_unit.py
+test_actual_bind_failure_never_publishes_readiness (__main__.ModelLaunchChecks.test_actual_bind_failure_never_publishes_readiness) ... ok
+test_concurrent_launchers_load_only_one_service (__main__.ModelLaunchChecks.test_concurrent_launchers_load_only_one_service) ... ok
+test_cpu_and_gpu_stay_discoverable_in_either_exit_order (__main__.ModelLaunchChecks.test_cpu_and_gpu_stay_discoverable_in_either_exit_order) ... ok
+test_explicit_cpu_does_not_reuse_unknown_gpu_and_reuses_verified_cpu (__main__.ModelLaunchChecks.test_explicit_cpu_does_not_reuse_unknown_gpu_and_reuses_verified_cpu) ... ok
+test_explicit_occupied_port_fails_without_touching_foreign_service (__main__.ModelLaunchChecks.test_explicit_occupied_port_fails_without_touching_foreign_service) ... ok
+test_explicit_url_port_contradiction_and_ignored_extras_are_rejected (__main__.ModelLaunchChecks.test_explicit_url_port_contradiction_and_ignored_extras_are_rejected) ... ok
+test_fifo_registry_rejected_without_waiting_for_a_writer (__main__.ModelLaunchChecks.test_fifo_registry_rejected_without_waiting_for_a_writer) ... ok
+test_foreign_occupied_port_preserved_and_actual_port_zero_published (__main__.ModelLaunchChecks.test_foreign_occupied_port_preserved_and_actual_port_zero_published) ... ok
+test_new_transport_resolves_new_registry_but_explicit_url_bypasses_it (__main__.ModelLaunchChecks.test_new_transport_resolves_new_registry_but_explicit_url_bypasses_it) ... ok
+test_registered_healthy_service_reused_without_launch (__main__.ModelLaunchChecks.test_registered_healthy_service_reused_without_launch) ... ok
+test_registry_symlink_permissions_and_remote_endpoint_fail_closed (__main__.ModelLaunchChecks.test_registry_symlink_permissions_and_remote_endpoint_fail_closed) ... ok
+test_stale_cpu_record_does_not_hide_live_gpu (__main__.ModelLaunchChecks.test_stale_cpu_record_does_not_hide_live_gpu) ... ok
+test_stale_endpoint_replaced_and_only_owned_record_removed (__main__.ModelLaunchChecks.test_stale_endpoint_replaced_and_only_owned_record_removed) ... ok
+test_wrong_model_context_or_slots_are_never_auto_selected (__main__.ModelLaunchChecks.test_wrong_model_context_or_slots_are_never_auto_selected) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 1.362s
+
+OK
+python3 tests/verify_model.py
+PASS M01: split thinking tags, UTF-8 final stream, completed-only multi-turn history, session isolation
+PASS M02: cancel during thinking, durable cancellation replay, slow-first-token heartbeat, other client continues
+PASS M03: model port change resumes exact frozen prefix/budget/settings; invalid runtime endpoint is rejected without losing checkpoint
+PASS M04: token-limit interruption is resumable and never falsely marked complete
+PASS M05: real C client receives non-thinking model final output only
+PASS M06: non-loopback model endpoint is rejected before any remote request
+All 6 model integration checks passed.

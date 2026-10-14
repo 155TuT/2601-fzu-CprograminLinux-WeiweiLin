@@ -1,0 +1,38 @@
+ TASK4  /  Qwen3.5-4B / layout fixture
+ session cccccccccccc  /  context 81 / 16384  /  live
+ /help  /sessions  /new
+ YOU  /  1
+  请给出逐行读取文件的 C 示例。
+
+ Qwen3.5-4B / layout fixture
+ Thinking
+  先检查打开失败，再逐行读取。Check fopen before fgets.
+
+  下面的例子保留错误检查：
+  ```c
+  #include <stdio.h>
+  int main(void) {
+      FILE *fp = fopen("notes.txt", "r");
+      if (!fp) { perror("fopen"); return 1; }
+      char line[256];
+      while (fgets(line, sizeof line, fp))
+          fputs(line, stdout);
+      fclose(fp);
+      return 0;
+  }
+  ```
+  编译：cc -Wall -Wextra read.c -o read
+  运行前请创建 notes.txt。
+ completed  /  128 tok  /  76.5 tok/s  /  1.7s  /  ctx 81/16384
+
+ YOU  /  2
+  为什么必须检查 fopen？
+
+ Qwen3.5-4B / layout fixture
+  打开失败时 fp 是 NULL；检查后才能安全使用它。
+  同一会话可以继续追问。
+ completed  /  24 tok  /  72.8 tok/s  /  0.4s  /  ctx 81/16384
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+ completed  |  Enter send  Ctrl+C clear  Wheel/PgUp scroll  /help
+question>  草稿：请解释 fgets 的返回值🙂

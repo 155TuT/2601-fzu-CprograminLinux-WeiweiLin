@@ -1,188 +1,271 @@
-# 实验四：并发流式文本交互系统
+# 实验四：本地 Qwen3.5-4B 并发流式对话
 
-依据《Linux 操作系统设计实践》实验指导书的方案 2 完成。系统由服务端、客户端和独立文本生成程序组成：客户端输入问题后，服务器为这一轮随机选择本地语料，生成程序逐个输出 UTF-8 码点，服务器边读取边发送，客户端边接收边保存、显示，形成打字机效果。
+依据实验指导书 PDF 第 7–9 页的**方案 4**实现：C 服务端、C 客户端、独立生成进程；多个客户端同时输出；同一连接连续提问并携带本会话历史；模型在本机运行。
 
-同一服务器可以同时服务多个客户端；每个连接有自己的工作进程，每个会话有自己的日志、轮次目录和上下文文件。关闭一个客户端不会结束其他客户端的生成。随机选择分别执行，两个客户端仍可能抽中同一份语料。
+本机已确认 WSL2 可调用 NVIDIA GeForce RTX 5060 Laptop GPU（8 GB）。默认使用 **Qwen3.5-4B Q5_K_M + llama.cpp CUDA**，模型常驻内存，两个推理槽共享权重，**每槽 16384 token（16k）上下文**。选择依据、固定版本、校验和及实测速度见 [本地模型说明](docs/local-model.md)。不调用外部推理 API，首次安装需要联网下载运行库和模型。
 
-当前执行本地语料方案，问题内容不决定语料内容。项目保留方案 4 所需的生成后端接口、上下文路径、分帧输入、低速生成等待和断点恢复结构；模型部署与推理适配见 [架构说明](docs/architecture.md)。
+生成时区分思考和正式回答；可以随时取消本轮、修改要求后重问。网络断开保留恢复资格，主动取消则结束该轮。仅完成的正式回答进入后续历史，思考及取消轮次留作本地运行记录。
 
-## 编译与依赖
+## 快速运行方案 4
 
-在 `homework/task4` 目录执行 `make`
-
-需要 Linux、GCC、GNU Make 和系统自带的 glibc/POSIX 接口。三个 C 程序不依赖第三方 C 库；验证额外需要 Python 3 标准库。详细依赖及将来的推理依赖组织约定见 [deps/README.md](deps/README.md)。
-
-编译产物集中放在 `bin/` 和 `build/`。Makefile 为源文件生成 `.d` 头文件依赖，修改 `include/task4/` 中的接口会重新编译相关模块。
-
-## 三个终端演示
-
-三个终端均进入本目录。终端 A 启动服务器：
+下面命令均在 `homework/task4` 执行。需要 Linux 5.3+（使用 pidfd 等待子进程）、GCC、Make、Python 3.12；Python 模块仅使用标准库。
 
 ```sh
-./bin/stream_server --rate 30
+make
+python3 scripts/model/setup.py
 ```
 
-看到 `listening on 127.0.0.1:3340` 后，终端 B 启动客户端 A：
+安装脚本把固定版本的运行库、GGUF 模型放到忽略提交的 `.runtime/`，校验 SHA256，支持下载中断后续传；不安装系统显卡驱动。已有完整文件仍会重新校验并跳过下载，运行库压缩包会重新解包安装。
+
+终端 A，启动常驻模型服务：
 
 ```sh
-./bin/stream_client --checkpoint state/a.ckpt
+bash scripts/model/serve.sh gpu
 ```
 
-终端 C 启动客户端 B：
+看到模型加载完成后，终端 B 启动课程服务端：
 
 ```sh
-./bin/stream_client --checkpoint state/b.ckpt
+./bin/stream_server --backend llama --state state/model-server
 ```
 
-分别输入任意问题，例如 `请介绍 Linux 进程` 和 `流式输出如何恢复？`。可以观察文字持续出现，两端同时输出；在客户端 A 的终端按 Ctrl+C，客户端 B 应继续输出。回答结束后可以继续输入问题；输入完整的 `/quit` 或在等待输入时发送 EOF 结束客户端。服务器在其终端按 Ctrl+C 结束并回收工作进程和生成进程，保留会话状态。
-
-客户端 A 被中断后，重复同一条客户端命令会恢复其未完成回答。此前已落盘的前缀保留在 checkpoint 中，终端显示尚未保存的后缀；这次恢复不会重新随机选择语料。每个客户端须使用独立 checkpoint。重复使用同一 checkpoint 表示继续原会话，演示新会话时改用另一个名称。
-
-如果只需恢复当前回答并退出，使用：
+终端 C 启动客户端。以后每开一个新终端，运行同一条命令即可建立独立会话：
 
 ```sh
-./bin/stream_client --checkpoint state/a.ckpt --resume-only
+./bin/stream_client
 ```
 
-`--resume-only` 不读取新的问题；若当前轮已完成，则握手后直接退出。
+客户端自动创建 `state/clients/session-XXXXXX/checkpoint.ckpt`，启动时显示具体路径；并行启动不会争用同一个 checkpoint。客户端没有固定的 Alice/Bob 身份，连接数量由服务端配置控制。需要接着以前的会话聊天时，可在界面输入 `/sessions`、`/switch ID`，也可启动时使用下文的 `--resume FILE`。
 
-`--rate 30` 表示约每秒 30 个 Unicode 码点；`--rate 1` 便于观察慢速输出和恢复，`--rate 0` 立即输出，便于快速检查。磁盘同步、调度和网络开销会使实测速度低于设置值。码点速度与语言模型的 **token/s** 含义不同，当前没有 tokenizer 和模型吞吐统计。
+可以直接输入问题，按 Enter 发送；例如先问 `请记住本次项目代号是松树，只回复收到。`，再问 `本次项目代号是什么？`，检验多轮上下文。首次启动和排队时可能暂时没有 token；课程服务端约每秒发送心跳，客户端继续等待，心跳不显示为对话内容。
 
-## 文件输入与独立生成程序
+没有可用 CUDA 显卡时，终端 A 可改用 `bash scripts/model/serve.sh cpu`。本机实测 GPU 明显更快，默认采用 GPU。请保持推理服务与课程服务端运行。两层服务都支持自动端口：模型启动器复用已验证匹配的健康实例，否则由系统分配新端口；课程服务端默认使用 `--port 0`，由内核在绑定时分配可用端口。
 
-可将多轮问题按行放入 UTF-8 文本文件；文件最后一行没有 LF 也会发送。例如：
+### 自动端口与服务发现
+
+日常仍使用上面的三条命令，不需要把服务端打印的端口复制给客户端，也不需要为了端口冲突结束其他程序。
+
+- 模型服务的实际地址列表发布到 `.runtime/model-service.json`，默认模型配置 `endpoint: "auto"` 从该记录解析。8081 上的模型若健康且配置匹配，会直接复用，避免额外加载一份模型占用显存。
+- 课程服务端把地址发布到 `state/services/`；无参数客户端发现唯一运行中的服务。服务记录与主进程持有的状态锁、每次启动的新实例标识绑定，已退出服务的残留记录不会被选中。
+- 同一个 `--state` 只允许一个主服务。重复启动会提示已有地址；新命令的配置不会覆盖正在运行的实例。不同状态目录可以同时起服务，端口互不争用。
+- 恢复时按 checkpoint 的会话 token 匹配原服务状态目录，服务端重启后可以换端口。多个新会话候选或复制了相同会话的多个服务会明确报歧义，不任意选一个。
+
+需要选择特定服务或仍使用固定端口时：
 
 ```sh
-printf 'first question\n第二个问题\n' > state/demo-prompts.txt
-./bin/stream_client --input state/demo-prompts.txt --checkpoint state/file-demo.ckpt
+./bin/stream_client --server-state state/model-server
+./bin/stream_client --resume 路径/checkpoint.ckpt --server-state state/model-server
+
+# 固定端口为显式选择，被占用时明确报错；省略 --port 或设置为 0 即自动分配
+./bin/stream_server --backend llama --state state/model-fixed-server --port 3340
+./bin/stream_client --host 127.0.0.1 --port 3340
 ```
 
-恢复文件输入时，使用原来的 `--input` 和 `--checkpoint` 命令，输入文件内容应保持不变。客户端跳过此前已经消费的行，并先恢复未完成的一轮。不要把同一 checkpoint 在不同输入文件或交互输入之间混用。
+`--discovery-dir DIR` 可更改服务注册目录，客户端与服务端应传相同目录；`--server-state DIR` 直接读取指定状态目录，不依赖注册目录扫描。显式 `--host` 需要同时指定 `--port`。自动发现连接会在创建会话前核对同一 TCP 连接上的实例标识，避免旧端口被复用后误建会话。固定地址连接保留原 HELLO 协议。
 
-checkpoint 是包含当前轮恢复元数据和回答追加记录的一个文件，不是纯文本回答。可使用只读辅助脚本查看进度或导出这一轮完整的持久回答前缀：
+## 终端界面与生成期间打断
+
+默认开启自制 C TUI：浅色背景、纯黑正文、灰色思考和指标，顶部显示会话，底部保留状态栏和输入区。每轮下方显示阶段、输入/上下文容量、生成 token、速率及耗时；STATUS 帧只更新这些属性，不追加对话消息。思考不进入下一轮模型历史。该界面借鉴 [OpenCode TUI](https://opencode.ai/docs/tui/) 的交互方式，绘制与编辑由本项目实现。
 
 ```sh
-python3 scripts/checkpoint.py state/a.ckpt
-python3 scripts/checkpoint.py state/a.ckpt --answer > state/a-answer.txt
+./bin/stream_client                 # 浅色 TUI，适合白底终端
+./bin/stream_client --theme dark    # 深色 TUI
+./bin/stream_client --plain         # 传统逐行输出
 ```
 
-完整多轮问题、回答及生成日志保存在服务端会话目录中，见 [状态文件组织](docs/architecture.md)。
+鼠标滚轮每次滚动对话区 3 行，PgUp/PgDn 在对话区翻页；键盘 ↑/↓ 单独用于输入历史，滚轮不会替换输入草稿。向上查看时暂停自动跟随新输出，向下回到底部后恢复跟随。Ctrl+L 重绘；`/thinking` 切换思考的显示，`/theme light` 和 `/theme dark` 切换主题。这些是本地显示命令，不发给模型，也不改变模型的思考开关。窗口变化时正文重新换行，底部草稿保留；小于 12 列或 4 行时显示放大提示，放大后恢复完整布局。界面、尺寸截图及验证方法见 [TUI 说明](docs/tui.md)。
 
-生成程序也可以独立运行：
+真实终端使用独立的底部输入区，上方显示思考、回答和状态。方向键左右移动，Home/End 或 Ctrl+A/E 到行首/行尾，Backspace/Delete 删除完整 UTF-8 码点，Ctrl+U/K 删除光标前/后文字，Ctrl+W 删除前一个词，↑/↓ 浏览当前会话的输入历史（含切换时恢复的问题）。长问题水平滚动显示。中文组合输入由终端和输入法完成；编辑单位为码点，组合字符与 emoji 字素簇不是整体编辑单位。
+
+支持终端的 bracketed paste：粘贴中的换行合并为空格，粘贴本身不提交，检查后按 Enter。缩放窗口后输入区重绘。生成中可以编辑草稿，新的输出、状态变化和回答结束都不会清掉草稿。
+
+输入区提示 `correct /stop>` 时，提交普通文字会作为当前轮的纠偏要求，取消后重新提问；若等回答结束、提示变为 `question>` 后才按 Enter，则草稿成为下一轮问题。命令同样输入后按 Enter：
+
+| 操作 | 行为 |
+| --- | --- |
+| `/stop` 或生成期间 Ctrl+C | 取消当前思考/回答，等待服务端确认后继续接受新问题 |
+| `/steer 请用中文，限制在三句话内` | 先检查长度并持久化纠偏要求，取消旧轮；确认后把原问题与纠偏要求合并为下一轮问题 |
+| `/quit` | 生成期间先取消再退出；等待问题时直接退出 |
+| `/help` | 显示交互帮助 |
+| `/sessions` | 列出本地受管会话 ID、保存/占用状态及切换命令 |
+| `/new` | 在当前客户端内建立并切换到独立新会话 |
+| `/switch session-XXXXXX`、`/switch 路径/checkpoint.ckpt` | 切换到已有会话；被另一客户端占用或损坏的 checkpoint 会明确报错 |
+| `/delete`、`/delete session-XXXXXX` | 将当前或指定受管会话移入本地 `.trash`；删除当前会话前先切换到新会话，服务端副本保留 |
+| `/retry` | 重新连接并续传当前未完成轮次；无未完成轮次时只重新连接 |
+| `/thinking` | 显示/隐藏思考，不取消生成、不修改上下文 |
+| `/theme light`、`/theme dark` | 即时切换界面配色 |
+
+生成过程中使用 `/new`、`/switch` 或 `/delete`，会先断开当前传输并保留未完成轮次；切回后用 `/retry` 接着生成。切换不等于 `/stop`，不会给旧轮写取消标记。网络超时、模型报错等会显示在当前对话和状态属性中，TUI 继续运行；可 `/retry`、`/stop`，或切换会话。首次连接发生在 TUI 初始化之前，连接失败会直接退出；批处理、`--resume-only` 等非交互调用通过退出码报告错误。
+
+`/delete` 只处理 `--session-dir` 下的 `session-XXXXXX` 受管目录，拒绝任意外部路径、符号链接和仍被其他客户端持锁的会话。成功后会显示 `.trash` 中的实际目录；其中 checkpoint、历史与原锁文件一起保留。需要恢复时，在相关客户端退出后把该目录移回原会话 ID，或用 `/switch` 指向回收目录内的 checkpoint。该操作不删除服务端推理记录。
+
+界面使用终端备用屏幕，退出后回到原命令行，并打印 checkpoint 路径。stdout 重定向时仍单独保存正式回答。非交互运行中，思考和一次最终统计写 stderr，正式回答写 stdout；需要调试原始 STATUS 时增加 `--verbose-status`。模型文本中的终端控制序列不会作为编辑命令执行。新文本先进入显示缓存，界面约每 34 ms 合并一帧，只发送发生变化的屏幕行。独立非阻塞终端输出保存尚未写完的帧；终端暂时接收不及，后续文本继续在有界缓存中合并，不阻塞网络读取，也不积压无数完整重绘帧。
+
+纠偏采用“取消 → 确认 → 新请求”，不会修改已开始的模型输入；保留原问题使“改用另一种写法”有明确对象。旧轮的部分回答保留在磁盘，**不会作为完整 assistant 消息加入下一轮历史**。纠偏队列用 `<checkpoint>.steer` 持久保存，客户端意外退出后可继续处理。
+
+交互控制针对真实终端。`--input FILE` 和管道输入保持逐行批处理，不把后续问题当作正在生成时的命令。超出 4096 字节的合并问题会在取消前被拒绝。
+
+## 断线、恢复与文件输入
+
+无参数命令总是建立新会话；`--resume FILE` 要求 checkpoint 已存在，并恢复旧会话。先用以下命令找到自动创建的会话路径，再把 `路径/checkpoint.ckpt` 替换为列表中的实际路径：
 
 ```sh
-./bin/text_generator --source data/corpus/streaming.txt --rate 10
-./bin/text_generator --source data/corpus/streaming.txt --rate 0 > state/generated.txt
+./bin/stream_client --list-sessions
+./bin/stream_client --resume 路径/checkpoint.ckpt
 ```
 
-生成程序的 stdout 只写原始 UTF-8 文本，stderr 输出来源、速率和错误信息。服务器通过管道读取 stdout，并将 stderr 保存到该轮的 `generator.log`，避免诊断文字混入回答。`--offset` 使用字节单位，必须落在 UTF-8 码点边界；`--prompt` 和 `--context` 当前只保留输入路径，语料生成器不读取其内容来生成回答。
+`--session-dir DIR` 可更改自动会话目录，也可与 `--list-sessions` 一起使用。兼容参数 `--checkpoint FILE` 在文件不存在时建立指定会话、存在时恢复；日常使用无需手工为每个终端命名。
 
-## 参数与边界
+主动 `/stop` 是取消，**不是断点暂停**。要验证意外断线恢复，可从另一终端向客户端发送 SIGTERM，或关闭其终端；随后显式指定原 checkpoint 重连。恢复需使用原服务端状态目录，端口可以改变，不能删除服务端状态。显式连接远端时自行提供新的 `--host/--port`。
+
+```sh
+./bin/stream_client --resume 路径/checkpoint.ckpt --resume-only
+./bin/stream_client --resume 路径/checkpoint.ckpt --cancel-pending
+python3 scripts/checkpoint.py 路径/checkpoint.ckpt
+python3 scripts/checkpoint.py 路径/checkpoint.ckpt --answer > state/answer.txt
+```
+
+`--resume-only` 恢复当前轮后退出，不读取新问题。TUI 会先恢复本地历史归档，再显示 checkpoint 中本轮已有正文；逐行模式和重定向 stdout 只输出尚未保存的后缀，完整内容可从 checkpoint 导出。活动 checkpoint 仍只保存当前轮；完整交互 TUI 在轮次完成或取消后，将正式问题、回答和终态归档到 `<checkpoint>.history/turn-00000001.ckpt`，切换或重开界面时按轮次恢复。归档不包含思考或 STATUS，也不参与模型提示构造。
+
+没有本地归档的会话只能显示其现存 checkpoint 中的最近一轮；服务端仍保留模型需要的已完成历史。恢复应保留整个客户端会话目录，包括 checkpoint、可选 `.steer` 和 `.history/`，同时保留原服务端会话目录。界面有显示缓存上限，超长历史可能只显示最近部分，磁盘内容不因此删除。
+
+`--cancel-pending` 在重连后立即取消旧未完成轮次并退出，适合模型离线、上下文用尽等无法继续生成的情况。已完成/取消的轮次不会重启。若已有持久纠偏队列，两种恢复命令都会继续执行该队列，避免丢掉用户已提交的修改要求；该参数只取消旧轮，不取消新纠偏轮。
+
+模型恢复先重放服务端已保存的正式回答，再将**冻结的原始提示模板 + 已落盘的原始生成前缀**交给 llama.cpp 续写。模型不重新生成旧答案再跳过同样字节数。已保存前缀不会丢失或重复；进程重启后的 KV cache、采样随机状态不被保存，后续采样不保证与从未断线的运行逐 token 一致。思考流有独立游标，恢复时可重放思考，正式回答游标不受影响。
+
+批量问题按行写入 UTF-8 文件：
+
+```sh
+printf '请用一句话介绍 fork\n它和 exec 有什么关系？\n' > state/questions.txt
+./bin/stream_client --input state/questions.txt --checkpoint state/file.ckpt
+```
+
+重跑时保持同一输入文件、同一 checkpoint；客户端先恢复未完成轮次，再跳过已消费行。不要混用不同输入文件或交互模式。
+
+### checkpoint 被占用与暂停进程
+
+同一 checkpoint 同时只能由一个客户端持有。出现 `checkpoint is in use` 时，先检查原终端是否仍在运行客户端。Ctrl+Z 会暂停进程，**暂停后锁仍然有效**；在原终端运行 `jobs -l`、`fg`，回到客户端后用 `/quit` 正常退出，才能在另一终端恢复它。客户端暂停前恢复终端设置，继续前台运行后恢复编辑界面。另开独立会话可直接用无参数命令。
+
+不要删除 `.lock` 文件“解锁”，也不要删除 checkpoint：删除锁文件可能使两个进程绕过互斥并同时写入。锁随进程退出自动释放，文件本身可以保留。`request=0` 的短 checkpoint 是已握手、尚未提交问题的合法空会话。重新编译后需重新启动相应程序，已运行或暂停的进程不会自动更新。
+
+## 配置与边界
+
+模型设置集中在 [config/model.json](config/model.json)：
+
+| 配置 | 含义 |
+| --- | --- |
+| `endpoint` | 默认 `auto` 解析本地模型服务记录，也可显式指定回环 HTTP 地址；不使用代理或远程推理 |
+| `model_file` / `model` | 固定 GGUF 路径与运行别名 |
+| `thinking` | 由官方 chat template 开关思考；修改后对新轮次生效 |
+| `max_tokens` | 每次推理尝试最多生成的 token 数，包含思考和正文，新轮次默认 4096 |
+| `context_tokens` / `slots` | 默认每槽 16384 token、2 个推理槽；模型启动总容量为 32768 |
+| 采样参数 | `temperature/top_p/top_k/min_p/presence_penalty`；默认采用模型卡的通用思考参数 |
+
+服务端为每一轮保存配置快照；模型适配器还冻结模板、结构化历史及模型服务标识。修改运行配置不会悄悄改变正在恢复的轮次。切换 GGUF 或运行版本后，旧未完成轮次可能拒绝续写；可恢复原模型配置，或使用新 checkpoint 创建会话。
+
+运行地址单独处理：C 服务端将当前 `--model-config` 路径作为 `--runtime-config` 传给模型适配器，只从中取连接端点。即使旧轮的快照保存了 8081，也能通过当前的 `auto` 配置找到模型的新端口；原快照、采样参数和输出预算不改写，实际模型/构建/模板身份仍必须匹配。
+
+16k 是单会话模型输入与输出的共同窗口，包含模板、已完成历史和当前生成；新轮次每次推理尝试的输出上限为 4096 token。已有未完成轮次保留创建时的冻结配置。只增加运行时容量允许恢复，缩小容量或更换模型/模板仍会拒绝。每次建立新轮次会读取当前配置；修改生成预算无需重启模型或 C 服务端。本机已实测双槽同时接收 5529-token 输入，详见 [16k 记录](logs/model-context-16k.txt)，该实测使用记录中列明的配置。
+
+达到 token 上限、上下文不足、HTTP 错误、模型进程退出都会明确报错，并保留已落盘前缀；这些情况不写 `done`。达到本次输出上限时可重连续写；旧轮已耗尽冻结上下文时，可用 `--cancel-pending` 结束该轮再提交新问题，或创建新会话。当前没有自动摘要、静默丢弃旧消息或工具执行功能。
+
+`Connection timed out` 表示 I/O 等待超时，与 token 上限不同。客户端默认 `--idle-ms 10000`，收到合法的思考、正文、状态或保活帧会刷新等待期限；界面刷新和键盘事件不刷新网络期限。期限到达时先检查网络中已到达的数据；只有半帧的数据仍受完整帧期限约束。TUI 使用非阻塞绘制，发生超时后保留界面，可用 `/retry` 恢复当前轮；非交互调用以退出码报告失败。详见 [协议的期限说明](docs/protocol.md#帧期限与生成心跳)。
+
+`stop_type=limit` 表示本次生成量达到预算，思考也计入其中；不等于历史占满上下文。判断时同时查看该轮 `metrics.json` 的 `prompt_tokens`、`context_tokens` 和 `context_truncated`（错误信息中），最终生成量以 `timings.predicted_n` 为准。状态只发往客户端显示，不作为后续模型消息；历史只包含已完成轮次的问题和正式回答。模型关于“以前回答过”“知识截止日期”的自述需要核验，不能作为会话是否串线的依据。上下文来源、指标计数和生成边界见 [本地模型说明](docs/local-model.md#上下文指标与资源边界)。
 
 ```text
 bin/stream_server [--bind IPv4] [--port 0..65535] [--state DIR]
-  [--corpus DIR] [--generator PATH] [--rate 0..10000]
+  [--discovery-dir DIR]
+  [--backend llama] [--model-config config/model.json] [--adapter PATH]
   [--idle-ms 100..3600000] [--max-clients 1..64]
 
-bin/stream_client [--host HOST] [--port 1..65535] [--checkpoint FILE]
-  [--input FILE] [--resume-only] [--idle-ms 1500..3600000]
-
-bin/text_generator --source FILE [--prompt FILE] [--context FILE]
-  [--offset BYTE_OFFSET] [--rate 0..10000]
+bin/stream_client [--host HOST --port 1..65535 | --server-state DIR]
+  [--discovery-dir DIR]
+  [--session-dir DIR | --resume FILE | --checkpoint FILE]
+  [--input FILE] [--resume-only] [--cancel-pending] [--idle-ms 1500..3600000]
+  [--plain] [--theme light|dark] [--verbose-status]
+bin/stream_client --list-sessions [--session-dir DIR]
 ```
 
-| 参数或限制 | 默认值及含义 |
-| --- | --- |
-| 服务端地址、端口 | `127.0.0.1:3340`；`--port 0` 由系统选择空闲端口，客户端使用启动信息打印的实际端口 |
-| 服务端状态目录 | `state/server`；父目录需存在，程序创建会话子目录 |
-| 客户端 checkpoint | `state/client.ckpt`；父目录需存在，每个客户端分别指定 |
-| 语料与生成程序 | `data/corpus` 中的普通 `.txt` 文件；`bin/text_generator` |
-| 并发连接容量 | 默认 32，最大 64；达到容量后拒绝新增连接 |
-| 服务端帧等待期限 | 默认 `600000` 毫秒 |
-| 客户端帧等待期限 | 默认 `10000` 毫秒，最小 `1500` 毫秒 |
-| 提问长度 | 每轮最多 4096 字节，不含 LF；允许空行，不允许 NUL |
-| 回答长度 | 每轮最多 16 MiB；按完整 UTF-8 码点发送与保存 |
-| 会话轮次 | 从 1 顺序递增，最多 10000 轮 |
+服务端使用 `llama` 后端，默认适配器为 `src/model/adapter.py`。默认接纳 32 个连接，最多 64 个；这是课程服务端的连接容量，与模型的两个并发推理槽不同，超过推理槽数量的请求需排队。每轮问题最多 4096 字节，正式回答最多 16 MiB，每会话最多 10000 轮。`INPUT` 支持分段上传，收到 `COMMIT` 才启动推理；没有逐键猜测尚未提交的问题。
 
-客户端消费完整的超长或含 NUL 输入行，提示后跳过，下一行仍可处理。TCP 传输采用显式帧边界和请求序号，不依赖一次 `send` 对应一次 `recv`；完整字段与状态机见 [协议说明](docs/protocol.md)。
+默认仅用于本机实验。会话 token 用于恢复，协议尚未提供 TLS 或账户认证。帧等待期限不是整轮生成的总时限。
 
-`--idle-ms` 是一次完整帧收发的期限，不是整段回答的总时限。生成器暂时没有输出时，服务器在约 1 秒空闲轮询后发送 `HEARTBEAT`；客户端收到它继续等待，游标不前移。这使低速生成和较长的首字等待可以继续使用同一连接。等待用户下一次提问仍受服务端帧期限约束。
+## 服务端后台看板
 
-服务器默认用于本机演示，握手 token 是恢复会话的持有者凭据，当前协议未提供 TLS 与用户认证；不宜直接作为公网服务使用。
+在另一个终端运行，只读观察各会话，不影响正在运行的 C 服务端：
 
-## 目录与模块调用
+```sh
+python3 scripts/server/dashboard.py --state state/model-server
+python3 scripts/server/dashboard.py --state state/model-server --once
+python3 scripts/server/dashboard.py --state state/model-server --json
+```
+
+看板每秒刷新，↑/↓ 或 j/k 选择会话，q 退出。显示连接、worker PID、轮次、阶段、token、速度、上下文估计、思考/正文落盘字节数；默认不展示问题和思考正文，需要问题预览时加 `--preview`。`paused` 指持锁的服务端 worker 被暂停，`offline` 不等于回答完成；旧指标会标注快照时效。运行界面依赖 Python 标准库 curses；没有终端时使用 `--once`/`--json`。
+
+## 目录与调用关系
 
 ```text
 task4/
-├── Makefile
-├── README.md
-├── report.md                    # 可编辑实验报告与源码附录
-├── include/task4/               # 本项目公共接口
-│   ├── protocol.h               # 帧、网络收发、地址与数字解析
-│   ├── store.h                  # 服务端会话、轮次和持久化
-│   ├── checkpoint.h             # 客户端恢复状态与文件锁
-│   ├── files.h                  # 两侧共有的路径、完整写入和目录同步
-│   ├── backend.h                # 生成后端生命周期
-│   └── text.h                   # UTF-8 码点检查
+├── Makefile / README.md / report.md
+├── include/task4/          # C 公共接口：协议、后端、持久化、UTF-8
 ├── src/
-│   ├── server/main.c            # 接入、fork 工作进程、转发与心跳
-│   ├── client/main.c            # 输入、checkpoint、接收与显示
-│   ├── net/protocol.c           # TCP 帧收发和超时
-│   ├── storage/session.c        # 独立会话目录、日志与上下文
-│   ├── storage/checkpoint.c     # 客户端恢复记录与追加日志
-│   ├── storage/files.c          # 公共文件工具，不依赖会话和后端
-│   ├── backend/corpus.c         # 随机语料快照、pipe/fork/exec
-│   └── generator/main.c         # 独立逐码点文本生成程序
-├── deps/                        # 依赖说明，当前无第三方 C 库
-├── data/
-│   ├── corpus/                  # 默认必需语料数据
-│   └── demo/corpus/             # 自动演示使用的短语料
-├── tests/                       # Python 标准库集成验证
-├── scripts/
-│   ├── checkpoint.py            # 只读检查 checkpoint、导出回答
-│   ├── demo.py                  # 重录并发、流式、恢复、隔离日志
-│   └── render_report.py         # 保留报告正文，更新行数与源码附录
-├── docs/                        # 架构和线协议详细说明
-├── logs/                        # 归档的实测日志和验证结果
-├── screenshots/                 # 实际 xterm 白底窗口截图
-├── state/                       # 运行状态、断点和会话数据
-├── bin/                         # make 生成的三个可执行程序
-└── build/                       # make 生成的 .o 与 .d 文件
+│   ├── server/main.c      # TCP 接入、每连接 fork、流式转发与取消
+│   ├── client/
+│   │   ├── main.c        # 会话切换、错误保活、poll、恢复和纠偏
+│   │   ├── terminal.c    # termios、UTF-8 编辑、键鼠分流、粘贴及重绘节流
+│   │   ├── view.c        # 可重排对话区、主题、灰色思考/指标、翻页
+│   │   ├── screen.c      # 屏幕行差分、合帧缓存、有界非阻塞写出
+│   │   ├── status.c      # 只解析显示需要的 STATUS 字段
+│   │   └── state.c       # 会话列表/解析、软删除、终态正文归档与回放
+│   ├── net/protocol.c     # 分帧、完整收发、超时
+│   ├── net/discovery.c    # 服务租约、原子端口注册、恢复会话匹配
+│   ├── storage/           # 会话、客户端 journal、文件工具
+│   ├── backend/
+│   │   ├── process.c     # fork/exec、FD、父进程死亡与回收
+│   │   └── model.c       # 配置快照、启动独立 Python 适配器
+│   └── model/            # 独立生成进程的 Python 模块
+│       ├── adapter.py    # 上下文、模型调用、事件与统计
+│       ├── transport.py  # 本地 HTTP/SSE
+│       ├── discovery.py  # 健康模型实例识别、动态回环端点解析
+│       ├── journal.py    # 原始生成日志、原子文件与恢复
+│       └── stream.py     # 思考/回答分流和帧编码
+├── config/model.json      # 本地推理设置
+├── scripts/model/         # 固定版本安装、GPU/CPU 启动与实测
+├── scripts/server/        # 独立只读 curses 后台看板
+├── scripts/               # checkpoint 查看、演示、报告附录生成
+├── tests/                 # 通信、交互控制、模拟本地模型检查
+├── deps/jsmn/             # 固定版本 MIT JSON tokenizer 及许可证
+├── deps/README.md         # 系统、推理和界面依赖说明
+├── docs/                  # 架构、协议、界面和模型使用说明
+├── logs/ / screenshots/   # 实测证据、真实白底终端截图
+├── state/                 # 会话与 checkpoint，忽略提交
+├── .runtime/              # 下载的模型/运行库，忽略提交
+└── bin/ / build/           # C 可执行文件及 .o/.d，忽略提交
 ```
-
-调用关系如下；箭头表示调用或数据传送，生成程序作为独立进程运行：
 
 ```text
-client/main ── protocol ── TCP ── server/main（每连接工作进程）
-    │                                  ├── storage/session（会话与轮次）
-    └── storage/checkpoint             └── backend/corpus
-            │                               │
-            └── storage/files               └── pipe + fork + exec
-                （session 也调用）               └── generator/main
+C client ── TCP ── C worker（每连接独立）
+  │                  ├── session/context/turn files
+  └── checkpoint     └── backend + process（fork/exec）
+                          └── socketpair → Python model adapter
+                                                   └── loopback HTTP/SSE
+                                                        └── llama-server → CUDA GPU
 ```
 
-`include/task4/` 只声明跨模块接口，源代码按职责分目录，系统头文件由编译器读取，不复制到项目。未来新增生成后端放入 `src/backend/`，相关外部依赖说明放入 `deps/`；客户端、帧收发及会话存储继续通过公共接口协作。
+头文件仅声明跨模块接口；客户端不链接服务端存储或生成后端。Python 负责推理 JSON、SSE、模板和推理日志，C 负责 Linux 进程、TCP、并发、取消、持久转发和 TUI；客户端只用 jsmn 读取显示指标。推理引擎是现成依赖，其内部 C++ 源码不混入课程源文件。
 
-客户端只链接客户端入口、checkpoint、网络协议和公共文件工具；服务端会话管理与语料后端由服务器链接。`storage/files` 提供 `t4_path`、`t4_write_all` 与 `t4_directory_sync`，使两侧可以共享文件操作，而不互相依赖对方的会话或生成模块。
-
-## 验证、状态和提交
+## 验证与报告
 
 ```sh
 make verify
-make clean
-```
-
-`make verify` 启动真实的三个 C 程序，使用回环地址、临时端口和独立临时状态目录进行集成检查。检查覆盖并发隔离、逐字输出、UTF-8、低速等待、断点恢复和协议错误等行为，运行记录见 [logs/verification.txt](logs/verification.txt)。
-
-维护源码或重新采集演示时，还可执行：
-
-```sh
-python3 scripts/demo.py
+python3 scripts/model/smoke.py
+python3 scripts/model/tui_smoke.py
+python3 scripts/model/controls.py
 python3 scripts/render_report.py
+make -q
 ```
 
-`demo.py` 使用 `data/demo/corpus/` 和独立临时状态，重录 `logs/02-concurrent.txt` 至 `05-isolation.txt`；相应截图需随新日志重新采集。`render_report.py` 保留报告正文，更新源码行数统计及标记之后的源码附录，避免报告中的接口和代码与最终实现不同。
+`make verify` 不需要显卡、模型或联网，使用真实 C 程序和可控的本机 HTTP 测试服务。`smoke.py` 需要先启动真实 llama-server，运行独立状态中的 Qwen 多轮测试；`tui_smoke.py` 进一步使用全 stdio PTY 验证 4096 预算、历史归档和会话切换，实测见 [真实模型 TUI 记录](logs/model-tui-4096.txt)。测试范围与实测结果见 [report.md](report.md)，完整模块契约见 [架构](docs/architecture.md) 和 [协议](docs/protocol.md)。
 
-`make clean` 只删除 `build/` 和 `bin/`，保留语料、状态、报告、日志与截图。恢复会话需要同时保留服务端的 `state/server/` 和客户端 checkpoint；追加记录就在 checkpoint 文件内部，只保存一侧不足以恢复。文件锁在进程退出时由内核释放，锁文件本身可留存。
-
-实验报告为 [report.md](report.md)，包含系统开发情况、运行截图、实验结果、编程工作总结和注释源码附录。提交前填写学号、姓名、专业与班级；转换 DOCX 时从本目录处理 Markdown，并确认 `screenshots/` 相对路径对应的图片已嵌入。运行时 PID、会话 token 和随机选择结果会变化。
+`make clean` 只删除 C 构建产物，不删除模型、会话、报告与证据。提交源码时不用提交 `.runtime/`、`state/`。报告保留可编辑 Markdown，提交前填写个人信息；转 DOCX 时从本目录处理，并确认相对路径图片已嵌入。

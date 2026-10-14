@@ -1,0 +1,18 @@
+Qwen3.5-4B local runtime performance (2026-10-14)
+llama.cpp b11429 / CUDA 13.4 / RTX 5060 Laptop GPU / 8 CPU threads
+
+llama-bench: GPU pp128 + tg64, 3 samples each, flash attention on
+Q4_K_M: prompt 2069.65 +/- 314.32 token/s; generation 86.34 +/- 1.57 token/s
+Q5_K_M: prompt 2378.86 +/- 421.52 token/s; generation 80.52 +/- 0.52 token/s
+CPU Q5_K_M: CUDA devices hidden, pp32 + tg16, 1 short sample
+CPU: prompt 131.71 token/s; generation 14.78 token/s
+
+Default: Q5_K_M; 3,143,656,608-byte GGUF; 2 slots x 4096-token context
+Loaded server GPU memory total use: 4895 MiB / 8151 MiB, including existing desktop use
+Q4 has about 7.2 percent higher short generation throughput in this run.
+No model answer-quality benchmark was performed; Q5 retains higher quantization precision.
+Short CPU and pp samples do not establish long-context or concurrent throughput.
+These are tokenizer tokens/s, not Chinese characters/s.
+
+Raw data: model-q4-gpu-raw.txt, model-q5-gpu-raw.txt, model-q5-cpu-only-raw.txt
+[exit status: 0]
